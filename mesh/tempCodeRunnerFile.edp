@@ -1,0 +1,5 @@
+0,1){x=t;y=0;label=Diriclet;};
+border b2(t=0,1){x=1;y=t;label=Neumann;};
+border b3(t=0,1){x=1-t;y=1;label=Diriclet;};
+border b4(t=0,1){x=0;y=1-t;label=Neumann;};
+mesh Th=buil

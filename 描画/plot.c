@@ -281,7 +281,7 @@ int main(int argc,char *argv[]){
     graph_shape(dim_v);
     for(int T=0;T<100;T++){
         graph_shape(dim_v);
-
+        
         char str[200];
         sprintf(str,"t=%f",T*0.01);
         g_text_standard(back_x-200,base_y+50,str);//kの描画

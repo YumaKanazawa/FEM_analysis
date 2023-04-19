@@ -677,7 +677,7 @@ double phi(mesh_t *mesh,int i,double x,double y,int Kl){
     double ret=coef[0]+coef[1]*x+coef[2]*y;
     free_dvector(coef,0,dim);
 
-    if(ret<0.0 && ret>1.0){
+    if(ret<=0.0 && ret>1.0){
         ret=0.0;
     }
 

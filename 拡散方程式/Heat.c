@@ -3,12 +3,12 @@
 #include "../main_mesh.h"//メッシュ作成の関数
 
 
-#define D 0.0//Diffusion param
+#define D 0.5//Diffusion param
 #define delta_t 0.01//time step
 
 //非線形項
 double f(double x,double y,double t){
-    return 0.0;//q2*t*(y-y*y)+2*D*(1+t*t);
+    return 1.0;//q2*t*(y-y*y)+2*D*(1+t*t);
 }
 
 // /*================厳密解==================*/

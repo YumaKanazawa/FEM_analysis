@@ -1,8 +1,9 @@
 //advection_diffucion
 #include "../main_mesh.h"//メッシュ作成の関数
 
+#define D 0.05 //Diffusion Coefficient
 #define delta_t 0.01//time step
-#define D 0.0 //Diffusion Coefficient
+
 
 //nonlinear of advection diffusion equation
 double f(double x,double y){
@@ -12,7 +13,8 @@ double f(double x,double y){
 //initial condition
 double init(double x,double y){
     // double r=0.0,theta=pi/4;
-    return 1.0-(x*x+y*y);
+
+    return exp(-15*(pow(x,2)+pow(y+1,2)));
 }
 
 //ディリクレ境界条件
@@ -31,42 +33,39 @@ double *u(double x,double y){
     double *ret=dvector(1,dim);
     //ノイマン条件が与えられている境界上でu・n=0を満たすように作る
     //数値積分が面倒なので．．．
-    ret[1]=x;
-    ret[2]=-y;
+    ret[1]=-y;
+    ret[2]=x;
 
     return ret;
 }
 
-double div_u(mesh_t *mesh,double x,double y){
-    double h=1e-3;
-    double *U=u(x,y),*U_x=u(x+h,y),*U_y=u(x,y+h);
+// double div_u(mesh_t *mesh,double x,double y){
+//     double h=1e-3;
+//     double *U=u(x,y),*U_x=u(x+h,y),*U_y=u(x,y+h);
 
-    double dx=U_x[1]-U[1],dy=U_y[2]-U[2];
-    // printf("%f\n",(dx+dy)/h);
+//     double dx=U_x[1]-U[1],dy=U_y[2]-U[2];
+//     // printf("%f\n",(dx+dy)/h);
 
-    free_dvector(U,1,mesh->dim);
-    free_dvector(U_x,1,mesh->dim);
-    free_dvector(U_y,1,mesh->dim);
+//     free_dvector(U,1,mesh->dim);
+//     free_dvector(U_x,1,mesh->dim);
+//     free_dvector(U_y,1,mesh->dim);
 
-    return (dx+dy)/h;
-}
+//     return (dx+dy)/h;
+// }
 
 //φiφjの積分
 double Int(mesh_t *mesh,int i,int j,int Kl){
     double I=0.0;
     double S_Kl=area(mesh,Kl);//Kl番目の面積
     if(i==j){
-        I=S_Kl/6;
+        I=S_Kl/6.0;
     }else{
-        I=S_Kl/12;
+        I=S_Kl/12.0;
     }
     return I;
 }
 
-// //関数ポインタ
-// typedef double (* Func)(mesh_t,int,double,double,int);
-// Func df=phi(mesh,int,double,double,int);
-
+//φi(u・∇φj)の積分
 double Int_div_five(mesh_t *mesh,int i,int j,int Kl){
     int dim=mesh->dim;
     double S=area(mesh,Kl);
@@ -90,11 +89,12 @@ double Int_div_five(mesh_t *mesh,int i,int j,int Kl){
 
         
         double *U=u(x_num_I,y_num_I);
-        double div=div_u(mesh,x_num_I,y_num_I);
+        // double div=div_u(mesh,x_num_I,y_num_I);
 
 
-        double div_int=div*phi(mesh,i,x_num_I,y_num_I,Kl)*phi(mesh,j,x_num_I,y_num_I,Kl);//(∇・u)φiφj
+        // double div_int=div*phi(mesh,i,x_num_I,y_num_I,Kl)*phi(mesh,j,x_num_I,y_num_I,Kl);//(∇・u)φiφj
         // printf("∇・u=%f,phi_i=%f,phi_j%f\n",div,phi(mesh,i,x_num_I,y_num_I,Kl),phi(mesh,j,x_num_I,y_num_I,Kl));
+
         double phi_i_int=inner_product(1,dim,U,Coord_i);//u・∇φi
         // printf("u・∇φj=%f\n",phi_j_int);
         double phi_j_int=inner_product(1,dim,U,Coord_j);//u・∇φj
@@ -102,35 +102,19 @@ double Int_div_five(mesh_t *mesh,int i,int j,int Kl){
         double phi_i=phi(mesh,i,x_num_I,y_num_I,Kl);//φi
         double phi_j=phi(mesh,j,x_num_I,y_num_I,Kl);//φj
 
-        double cover_int=phi_i_int*phi_j-div_int-phi_j_int*phi_i;
+        double cover_int=0.5*(phi_i*phi_j_int)-0.5*(phi_j*phi_i_int);
         ret+=w*cover_int;
 
         free_dvector(U,1,dim);
     }
-    // if(ret!=0.0){
-    //     printf("K=%d,ret=%f\n",Kl,area(mesh,Kl)*ret);
-    // }
 
     free_dmatrix(Coord,1,N,1,mesh->np);
     free_dvector(Coord_i,0,dim);
     free_dvector(Coord_j,0,dim);
 
+
     return S*ret;
 }
-
-
-// double Int_div_two(mesh_t *mesh,int i,int j,int Kl){
-//     double **Coord=NumInt_deg_two(mesh,Kl);//2次の数値積分
-//     int N=mesh->dim+1;
-//     double ret=0.0;
-//     double w=1/(N);
-//     for(int num=1;num<=N;num++){
-//         double x_num_I=Coord[num][1],y_num_I=Coord[num][2];
-//         ret+=w*div_u(x_num_I,y_num_I)*phi(mesh,i,x_num_I,y_num_I,Kl)*phi(mesh,j,x_num_I,y_num_I,Kl);
-//     }
-//     free_dmatrix(Coord,1,N,1,mesh->np);
-//     return area(mesh,Kl)*ret;
-// }
 
 
 //要素剛性行列の作成
@@ -164,10 +148,12 @@ double **Al(mesh_t *mesh){
 
                 /*======ここを問題の弱形式に応じて変更する========*/
                 double Int_ij=Int(mesh,i,j,l);
-                double Int_div_ij=Int_div_five(mesh,i,j,l);
-                
+                double Int_div_ij=Int_div_five(mesh,ver1,ver2,l);
 
-                double Discreate_WeakForm=Int_ij+(0.5)*delta_t*Int_div_ij+D*delta_t*inner_product(1,dim,C_i,C_j)*S_Kl;
+                // printf("(%d,%d),%.2f,",i,j,Int_div_ij);
+
+                double Discreate_WeakForm=Int_ij+delta_t*Int_div_ij+D*delta_t*inner_product(1,dim,C_i,C_j)*S_Kl;
+
                 /*==========================================*/
                 A[ver1][ver2]+=Discreate_WeakForm;//弱形式の離散結果
                 
@@ -322,9 +308,8 @@ int main(int argc,char *argv[]){
     double **U=dmatrix(1,np,1,np);
     LU(A,np,L,U);  
 
-    
 
-    for(int T=0;T<100;T++){//時刻Tにおいて解を求める
+    for(int T=0;T<1000;T++){//時刻Tにおいて解を求める
         double *RHS=out_force(&mesh,u_old);//要素質量ベクトル
 
         double **ERR=dmatrix(1,np,1,np);

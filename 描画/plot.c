@@ -212,7 +212,7 @@ void Result_plot(mesh_t *mesh,int T,char *PDEname,int dim,int waitime){
         double color=fabs(z0)+fabs(z1)+fabs(z2);
 
         if(dim==2){
-            g_area_color(1-color,0,0,1);
+            g_area_color(1-color,1-color,1-color,1);
             g_triangle_2D(
                 x0,y0,
                 x1,y1,
@@ -279,7 +279,7 @@ int main(int argc,char *argv[]){
     int dim_v=atoi(argv[4]);
 
     graph_shape(dim_v);
-    for(int T=0;T<100;T++){
+    for(int T=0;T<1000;T++){
         graph_shape(dim_v);
         
         char str[200];

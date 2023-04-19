@@ -216,20 +216,20 @@ int main(int argc,char *argv[]){
     mesh_t mesh;
     //alloc(and scan)
     alloc_scan_mesh(&mesh,argv[1],argv[2]);//argv[1]=次元の数　argv[2]=meshファイルの名前
-    int dim=mesh.dim;
-    int n=mesh.n;
+    // int dim=mesh.dim;
+    // int n=mesh.n;
     int np=mesh.np;
-    int ne=mesh.ne;
-    int nb=mesh.nb;
+    // int ne=mesh.ne;
+    // int nb=mesh.nb;
     double **npxy;
-    int **elnp;
-    int **bound;
+    // int **elnp;
+    // int **bound;
     npxy = mesh.npxy;
-    elnp = mesh.elnp;
-    bound = mesh.bound;
+    // elnp = mesh.elnp;
+    // bound = mesh.bound;
     /*==============================================================*/
     
-    // /*初期条件の代入*/
+    /*初期条件の代入*/
     double *u_old=dvector(1,np);
     for(int i=1;i<=np;i++){
         double x=npxy[i][1],y=npxy[i][2];
@@ -283,8 +283,8 @@ int main(int argc,char *argv[]){
     free_dmatrix(L,1,np,1,np);
     free_dmatrix(U,1,np,1,np);
 
-
     mesh_free(&mesh);// free
 
+    
     return 0;
 }

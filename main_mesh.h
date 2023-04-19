@@ -29,17 +29,25 @@ void alloc_scan_mesh(mesh_t *mesh,char *s1,char *s2){
     FILE *fp;
     int dim,np,ne,nb,i,j,k,dummy;//,n;(利用されていない)
     printf("alloc_scan_mesh: start .... "); fflush(stdout);
-    
+
     dim = atoi(s1); mesh->dim = dim;//次元数を数字に変更してdimに格納
     mesh->n=3;//n角形で分割するとき
 
-    if((fp=fopen(s2,"r"))==NULL){ printf("Can’t open file: %s.\n",s2); exit(1);}//ファイルの読み込み
-    fscanf(fp,"%d %d %d",&np,&ne,&nb); mesh->np = np, mesh->ne = ne, mesh->nb = nb;//各種パラメータを変数に格納
+    
+    if((fp=fopen(s2,"r"))==NULL){printf("Can’t open file: %s.\n",s2); exit(1);}//ファイルの読み込み
+    
 
+    fscanf(fp,"%d %d %d",&np,&ne,&nb); 
+    mesh->np = np;
+    mesh->ne = ne;
+    mesh->nb = nb;//各種パラメータを変数に格納
+
+    
     /*メモリの動的な確保*/
     mesh->npxy =dmatrix(1,np,1,dim); printf("npxy,"); fflush(stdout);
     mesh->elnp =imatrix(1,ne,1,dim+1); printf("elnp,"); fflush(stdout);
     mesh->bound=imatrix(1,nb,1,dim); printf("bound,"); fflush(stdout);
+
 
     /*行列の値格納*/
     for(i=1;i<=np;i++){
@@ -316,18 +324,18 @@ double **permu(double *a,double b,int N){
     return Ret;
 }
 
-//重心座標の積分計算
-double Integer(int *alpfa){
-    mesh_t mesh;
-    int d=mesh.dim;
-    //∫φi^i φj^jdx=(ijd!)/(|i+j|+d)!
-    int sum=0,product=1;
-    for(int i=1;i<=d+1;i++){
-        sum+=alpfa[i];
-        product*=alpfa[i];
-    }
-    return (product*factorial(d))/factorial(sum+d);
-}
+// //重心座標の積分計算
+// double Integer(int *alpfa){
+//     mesh_t mesh;
+//     int d=mesh.dim;
+//     //∫φi^i φj^jdx=(ijd!)/(|i+j|+d)!
+//     int sum=0,product=1;
+//     for(int i=1;i<=d+1;i++){
+//         sum+=alpfa[i];
+//         product*=alpfa[i];
+//     }
+//     return (product*factorial(d))/factorial(sum+d);
+// }
 
 //２次元の積分点
 double **NumInt_deg_two(mesh_t *mesh,int K){

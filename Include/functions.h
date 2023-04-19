@@ -11,6 +11,7 @@
 // #define sta 1
 
 // argument of (x[1],x[2]) in [0,2\pai) or -1 (the origin)
+
 // double arg( double *x ){
 //   double eps=1.0e-10, a; 
 //   if ( x[1]*x[1]+x[2]*x[2] < eps ){
@@ -34,38 +35,56 @@
 //   }
 //   exit(0);
 // }
-double *dvector(int i, int j){
+
+
+double *dvector(unsigned int i,unsigned  int j){
   double *a;
-  if ( (a=(double *)malloc( ((j-i+1)*sizeof(double))) ) == NULL ){
+  int length=j-i+1;
+  if ( (a=(double *)malloc( (length*sizeof(double)) ) ) == NULL ){
     printf("dvector: memory allocation is failed \n");
     exit(1);
   }
-  for(int n=i;n<=j;n++){
-    a[n]=0.0;
-  }   
+  //最初の位置が０であるようなベクトルをつくる。
+ for(int n=0;n<j-i+1;n++){
+    *(a+n)=0.0;
+  } 
+  
   return (a-i);
 }
-void free_dvector(double *a, int i,int j){
-  j=0;
-  free( (void *)(a + i) );
-  return;
+
+void free_dvector(double *a,unsigned int i,unsigned int j){
+  if(i!=j){
+    free((double*)(a+i));
+  }else{
+    printf("Non Length!\n");
+    exit(1);
+  }
+  a=NULL;
 }
-int *ivector(int i, int j){
+
+int *ivector(unsigned int i,unsigned int j){
   int *a;
   if ( (a=(int *)malloc( ((j-i+1)*sizeof(int))) ) == NULL ){
     printf("ivector: memory allocation is failed \n");
     exit(1);
   }  
-  for(int n=i;n<=j;n++){
-    a[n]=1;
+  for(int n=0;n<j-i+1;n++){
+    *(a+n)=1;
   } 
   return (a-i);
 }
-void free_ivector(int *a, int i){
-  free( (void *)(a + i) );
-  return;
+
+void free_ivector(int *a,unsigned int i,unsigned int j){
+  if(i!=j){
+    free(a+i);
+  }else{
+    printf("Non Length!\n");
+    exit(1);
+  }
+  a=NULL;
 }
-double **dmatrix(int nr1, int nr2, int nl1, int nl2){
+
+double **dmatrix(unsigned int nr1,unsigned int nr2,unsigned int nl1,unsigned int nl2){
   int i, nrow, ncol; 
   double **a; 
   nrow = nr2 - nr1 + 1 ; // number of row
@@ -79,20 +98,21 @@ double **dmatrix(int nr1, int nr2, int nl1, int nl2){
   for( i=nr1; i<=nr2; i++) a[i] = a[i]-nl1; 
 
   for(i=nr1;i<=nr2;i++){
-    for(int j=nl1;j<=nl2;j++){
+    for(int j=nl2;j<=nl2;j++){
       a[i][j]=0.0;
     }    
   }        
-  return (a);
+  return a;
 }
-void free_dmatrix(double **a, int nr1, int nr2, int nl1, int nl2){
-  int i=nl2;//意味のない文章
-  
-  for ( i = nr1 ; i <= nr2 ; i++) free((void *)(a[i]+nl1));
+
+void free_dmatrix(double **a,unsigned int nr1,unsigned int nr2,unsigned int nl1,unsigned int nl2){
+  for (int i = nr1 ; i <= nr2 ; i++) free((void *)(a[i]+nl1));
   free((void *)(a+nr1));
   return;
 }
-int **imatrix(int nr1, int nr2, int nl1, int nl2){
+
+
+int **imatrix(unsigned int nr1,unsigned int nr2,unsigned int nl1,unsigned int nl2){
   int i, nrow, ncol;
   int **a; 
   nrow = nr2 - nr1 + 1 ; /* number of row */
@@ -104,14 +124,17 @@ int **imatrix(int nr1, int nr2, int nl1, int nl2){
   a = a - nr1; 
   for( i=nr1; i<=nr2; i++) a[i] = (int *)malloc(ncol*sizeof(int));
   for( i=nr1; i<=nr2; i++) a[i] = a[i]-nl1;
-  for(i=nr1;i<=nr2;i++){
-    for(int j=nl1;j<=nl2;j++){
+
+ for(i=nr1;i<=nr2;i++){
+    for(int j=nl2;j<=nl2;j++){
       a[i][j]=0;
     }    
-  }   
+  }
+
   return (a);
 }
-void free_imatrix(int **a, int nr1, int nr2, int nl1, int nl2){
+
+void free_imatrix(int **a, unsigned int nr1,unsigned int nr2,unsigned int nl1,unsigned int nl2){
   int i=nl2;
 
   for ( i = nr1 ; i <= nr2 ; i++) free((void *)(a[i]+nl1));
@@ -119,7 +142,7 @@ void free_imatrix(int **a, int nr1, int nr2, int nl1, int nl2){
   return;
 }
 
-double *matrix_vector_product(double **a, double *b , int n){
+double *matrix_vector_product(double **a, double *b ,unsigned int n){
   int sta=1;
   int end=sta+n-1;
   double *c=dvector(1,n);
@@ -210,7 +233,7 @@ void pivod(double **A,double *b,int M){
       /*================================================================*/
     }else{
       /*=========対角成分が0になる場合，同列の0でない部分を加える===============*/
-      int non_zero;
+      int non_zero=0;
       for(int k=sta;k<end;k++){
         if(A[k][j]!=0.0){//k行目をj行目に加える
           non_zero=k;

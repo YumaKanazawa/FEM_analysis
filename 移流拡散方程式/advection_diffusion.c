@@ -1,20 +1,15 @@
 //advection_diffucion
 #include "../main_mesh.h"//メッシュ作成の関数
 
-#define D 0.05 //Diffusion Coefficient
-#define delta_t 0.01//time step
-
-
 //nonlinear of advection diffusion equation
 double f(double x,double y){
-    return 0.0;
+    return 1.0;
 }
 
 //initial condition
 double init(double x,double y){
     // double r=0.0,theta=pi/4;
-
-    return exp(-15*(pow(x,2)+pow(y+1,2)));
+    return exp(-50*(pow(x,2)+pow(y+1,2)));
 }
 
 //ディリクレ境界条件
@@ -39,92 +34,30 @@ double *u(double x,double y){
     return ret;
 }
 
-// double div_u(mesh_t *mesh,double x,double y){
-//     double h=1e-3;
-//     double *U=u(x,y),*U_x=u(x+h,y),*U_y=u(x,y+h);
-
-//     double dx=U_x[1]-U[1],dy=U_y[2]-U[2];
-//     // printf("%f\n",(dx+dy)/h);
-
-//     free_dvector(U,1,mesh->dim);
-//     free_dvector(U_x,1,mesh->dim);
-//     free_dvector(U_y,1,mesh->dim);
-
-//     return (dx+dy)/h;
-// }
-
-//φiφjの積分
-double Int(mesh_t *mesh,int i,int j,int Kl){
-    double I=0.0;
-    double S_Kl=area(mesh,Kl);//Kl番目の面積
-    if(i==j){
-        I=S_Kl/6.0;
-    }else{
-        I=S_Kl/12.0;
-    }
-    return I;
-}
-
-//φi(u・∇φj)の積分
-double Int_div_five(mesh_t *mesh,int i,int j,int Kl){
+//φi(u・∇φj)の定義
+double phi_ij(mesh_t *mesh,int Kl,int i,int j,double x,double y){
     int dim=mesh->dim;
-    double S=area(mesh,Kl);
-    double **Coord=NumInt_deg_five(mesh,Kl);//積分点の定義,５次
-    int N=7;
+    double *U=u(x,y);
 
-    double *Coord_i=coef_plate_grad(mesh,Kl,i);
     double *Coord_j=coef_plate_grad(mesh,Kl,j);
 
-    double ret=0.0;
-    double w;
-    for(int num=1;num<=N;num++){
-        double x_num_I=Coord[num][1],y_num_I=Coord[num][2];
-        if(i==1){
-            w=9.0/40.0;
-        }else if(2<=i && i<=4){
-            w=(155.0-sqrt(15))/1200.0;
-        }else{
-            w=(155.0+sqrt(15))/1200.0;
-        }
+    double phi_j_int=inner_product(1,dim,U,Coord_j);//u・∇φj
+    double phi_i=phi(mesh,i,x,y,Kl);//φi
 
-        
-        double *U=u(x_num_I,y_num_I);
-        // double div=div_u(mesh,x_num_I,y_num_I);
-
-
-        // double div_int=div*phi(mesh,i,x_num_I,y_num_I,Kl)*phi(mesh,j,x_num_I,y_num_I,Kl);//(∇・u)φiφj
-        // printf("∇・u=%f,phi_i=%f,phi_j%f\n",div,phi(mesh,i,x_num_I,y_num_I,Kl),phi(mesh,j,x_num_I,y_num_I,Kl));
-
-        double phi_i_int=inner_product(1,dim,U,Coord_i);//u・∇φi
-        // printf("u・∇φj=%f\n",phi_j_int);
-        double phi_j_int=inner_product(1,dim,U,Coord_j);//u・∇φj
-        // printf("u・∇φj=%f\n",phi_j_int);
-        double phi_i=phi(mesh,i,x_num_I,y_num_I,Kl);//φi
-        double phi_j=phi(mesh,j,x_num_I,y_num_I,Kl);//φj
-
-        double cover_int=0.5*(phi_i*phi_j_int)-0.5*(phi_j*phi_i_int);
-        ret+=w*cover_int;
-
-        free_dvector(U,1,dim);
-    }
-
-    free_dmatrix(Coord,1,N,1,mesh->np);
-    free_dvector(Coord_i,0,dim);
     free_dvector(Coord_j,0,dim);
+    free_dvector(U,1,dim);
 
-
-    return S*ret;
+    return phi_i*phi_j_int;
 }
 
 
-//要素剛性行列の作成
-double **Al(mesh_t *mesh){
-    printf("Al(要素剛性行列)\n");
+double advect(mesh_t *mesh,int Kl,int i,int j){
+    pfunc func=&phi_ij;
     /*==================構造体のデータ読み込み==========================*/
     int dim=mesh->dim;
-    int n=mesh->n;
-    int np=mesh->np;
-    int ne=mesh->ne;
+    // int n=mesh->n;
+    // int np=mesh->np;
+    // int ne=mesh->ne;
     // int nb=mesh->nb;
     // double **npxy;
     int **elnp;//,**bound;
@@ -133,146 +66,99 @@ double **Al(mesh_t *mesh){
     // bound = mesh->bound;
     /*==============================================================*/
 
-    double **A=dmatrix(1,np,1,np);//要素剛性行列Aの初期化
+    double S_Kl=area(mesh,Kl);//Kl番目の面積
 
-    for(int l=1;l<=ne;l++){
-        //要素KlがPi,Pj,Pkで構成されている
-        double S_Kl=area(mesh,l);
-        /*===================剛性行列の成分計算==========================*/
-        for(int i=1;i<=n;i++){
-            for(int j=1;j<=n;j++){
-                int ver1=elnp[l][i],ver2=elnp[l][j];//lを構成するi番目の節点番号
+    int ver1=elnp[Kl][i],ver2=elnp[Kl][j];//lを構成するi番目の節点番号
+    double *C_i=coef_plate_grad(mesh,Kl,ver1);//φiの勾配
+    double *C_j=coef_plate_grad(mesh,Kl,ver2);//φjの勾配
 
-                double *C_i=coef_plate_grad(mesh,l,ver1);//φiの勾配
-                double *C_j=coef_plate_grad(mesh,l,ver2);//φjの勾配
+    double Int_ij=Int(mesh,i,j,Kl);
+    double Int_div_ij=Int_div_five(func,mesh,Kl,ver1,ver2);
+    double Int_div_ji=Int_div_five(func,mesh,Kl,ver2,ver1);
 
-                /*======ここを問題の弱形式に応じて変更する========*/
-                double Int_ij=Int(mesh,i,j,l);
-                double Int_div_ij=Int_div_five(mesh,ver1,ver2,l);
+    double ret=Int_ij+0.5*delta_t*(Int_div_ij-Int_div_ji)+D*delta_t*inner_product(1,dim,C_i,C_j)*S_Kl;
 
-                // printf("(%d,%d),%.2f,",i,j,Int_div_ij);
+    free_dvector(C_i,0,dim);
+    free_dvector(C_j,0,dim);
 
-                double Discreate_WeakForm=Int_ij+delta_t*Int_div_ij+D*delta_t*inner_product(1,dim,C_i,C_j)*S_Kl;
-
-                /*==========================================*/
-                A[ver1][ver2]+=Discreate_WeakForm;//弱形式の離散結果
-                
-                free_dvector(C_i,0,dim);
-                free_dvector(C_j,0,dim);
-            }
-        }
-    }   
-    return A;
+    return ret;
 }
 
-double *out_force(mesh_t *mesh,double *u_old){
-    printf("out_force(外力項の離散化)\n");
+double heat(mesh_t *mesh,int Kl,int i,int j){
+    // pfunc func=&phi_ij;//数値積分の関数定義
+
     /*==================構造体のデータ読み込み==========================*/
-    // int dim=mesh->dim;
-    int n=mesh->n;
-    int np=mesh->np;
-    int ne=mesh->ne;
-    int nb=mesh->nb;
-    double **npxy;
-    int **elnp,**bound;
-    npxy = mesh->npxy;
+    int dim=mesh->dim;
+    // int n=mesh->n;
+    // int np=mesh->np;
+    // int ne=mesh->ne;
+    // int nb=mesh->nb;
+    // double **npxy;
+    int **elnp;//,**bound;
+    // npxy = mesh->npxy;
     elnp = mesh->elnp;
-    bound = mesh->bound;
+    // bound = mesh->bound;
     /*==============================================================*/
 
-    double *return_vector=dvector(1,np);
+    double S_Kl=area(mesh,Kl);//Kl番目の面積
 
-    /*========外力項の計算=========*/
-    for(int l=1;l<=ne;l++){
-        //要素KlがPi,Pj,Pkで構成されている
-        double **M=dmatrix(1,n,1,n);//要素質量行列
-        double *f_vector=dvector(1,n);
-        double *u_old_vector=dvector(1,n);
-        /*===================剛性行列の作成==========================*/
-        for(int i=1;i<=n;i++){  
-            for(int j=1;j<=n;j++){
-                // int ver1=elnp[l][i],ver2=elnp[l][j];//lを構成するi番目の節点番号
-                /*==========∫φiφjdxの計算結果代入==============*/
-                double I=Int(mesh,i,j,l);
-                /*==========================================*/
-                M[i][j]+=I;
-            }
-        }
-        /*=========================================================*/
+    int ver1=elnp[Kl][i],ver2=elnp[Kl][j];//lを構成するi番目の節点番号
+    double *C_i=coef_plate_grad(mesh,Kl,ver1);//φiの勾配
+    double *C_j=coef_plate_grad(mesh,Kl,ver2);//φjの勾配
 
-        /*==================要素質量外力ベクトル======================*/
-        for(int i=1;i<=n;i++){
-            int ver1=elnp[l][i];
-            double x=npxy[ver1][1],y=npxy[ver1][2];
-            f_vector[i]=f(x,y);
-            u_old_vector[i]=u_old[ver1];
-        }
-        double *rhs=matrix_vector_product(M,f_vector,n);
-        double *rhs_1=matrix_vector_product(M,u_old_vector,n);
-        /*=========================================================*/
+    double Int_ij=Int(mesh,i,j,Kl);
 
-        /*================返すベクトルに値を代入していく================*/
-        for(int i=1;i<=n;i++){
-            int ver1=elnp[l][i];
-            return_vector[ver1]+=(delta_t*rhs[i]+rhs_1[i]);
-        }
-        /*=========================================================*/
+    double ret=Int_ij+D*delta_t*inner_product(1,dim,C_i,C_j)*S_Kl;
 
-        free_dvector(f_vector,1,n);
-        free_dvector(u_old_vector,1,n);
-        free_dmatrix(M,1,n,1,n);
-        free_dvector(rhs,1,np);
-        free_dvector(rhs_1,1,np);
-    }
+    free_dvector(C_i,0,dim);
+    free_dvector(C_j,0,dim);
 
-    
-    /*=====================ノイマン条件の反映=====================*/
-    for(int b=1;b<=nb;b++){
-        int Gamma=2;
-        if(bound[b][n]==Gamma){
-            int Neumman_dim=2;
-            double **B=dmatrix(1,Neumman_dim,1,Neumman_dim);//二次元上の直線
-            double *Neumman_vector=dvector(1,Neumman_dim);//g1を反映すベクトル
-
-            int ver1=bound[b][1],ver2=bound[b][2];
-            double Lij=L(mesh,ver1,ver2);
-
-            for(int i=1;i<=Neumman_dim;i++){
-                for(int j=1;j<=Neumman_dim;j++){
-                    int value;
-                    if(i==j){
-                        value=2;
-                    }else{
-                        value=1;
-                    }
-                    B[i][j]=Lij*value/6.0;
-                }
-            }
-
-            for(int i=1;i<=Neumman_dim;i++){
-                int ver=bound[b][i];
-                Neumman_vector[i]=D*delta_t*g1(npxy[ver][1],npxy[ver][2]);
-            }
-
-            double *rhs_Neumman=matrix_vector_product(B,Neumman_vector,Neumman_dim);
-
-            for(int i=1;i<=Neumman_dim;i++){
-                int ver1=bound[b][i];
-                return_vector[ver1]+=rhs_Neumman[i];
-            }
-
-            free_dvector(rhs_Neumman,1,Neumman_dim);
-            free_dmatrix(B,1,Neumman_dim,1,Neumman_dim);
-            free_dvector(Neumman_vector,1,Neumman_dim);
-        }
-    }    
-    /*=========================================================*/
-
-    return return_vector;
+    return ret;
 }
 
+double wave(mesh_t *mesh,int Kl,int i,int j){
+    // pfunc func=&phi_ij;//数値積分の関数定義
+
+    /*==================構造体のデータ読み込み==========================*/
+    int dim=mesh->dim;
+    // int n=mesh->n;
+    // int np=mesh->np;
+    // int ne=mesh->ne;
+    // int nb=mesh->nb;
+    // double **npxy;
+    int **elnp;//,**bound;
+    // npxy = mesh->npxy;
+    elnp = mesh->elnp;
+    // bound = mesh->bound;
+    /*==============================================================*/
+
+    double S_Kl=area(mesh,Kl);//Kl番目の面積
+
+    int ver1=elnp[Kl][i],ver2=elnp[Kl][j];//lを構成するi番目の節点番号
+    double *C_i=coef_plate_grad(mesh,Kl,ver1);//φiの勾配
+    double *C_j=coef_plate_grad(mesh,Kl,ver2);//φjの勾配
+
+    double Int_ij=Int(mesh,i,j,Kl);
+
+    double ret=Int_ij+D*pow(delta_t,2)*inner_product(1,dim,C_i,C_j)*S_Kl;
+
+    free_dvector(C_i,0,dim);
+    free_dvector(C_j,0,dim);
+
+    return ret;
+}
+
+//右辺のベクトル離散化
+double RHS_right(double *u_p,int i,double x,double y){
+    return u_p[i]+delta_t*f(x,y);
+}
+
+
 int main(int argc,char *argv[]){
-    if(argc < 3){printf("Usage:./advection_diffusion dim ../Mesh/mesh01.msh\n"); exit(1);}//実行の仕方
+    weak weak_form=&advect;//ここを変える
+    out pre_sol=&RHS_right;//右辺のベクトルの離散化
+
+    if(argc < 3){printf("Usage:./PDE_name dim ../Mesh/mesh01.msh\n"); exit(1);}//実行の仕方
     /*==================構造体のデータ読み込み==========================*/
     mesh_t mesh;
     //alloc(and scan)
@@ -282,10 +168,10 @@ int main(int argc,char *argv[]){
     int np=mesh.np;
     // int ne=mesh.ne;
     // int nb=mesh.nb;
-    double **npxy;
+    // double **npxy;
     // int **elnp;
     // int **bound;
-    npxy = mesh.npxy;
+    // npxy = mesh.npxy;
     // elnp = mesh.elnp;
     // bound = mesh.bound;
     /*==============================================================*/
@@ -297,20 +183,19 @@ int main(int argc,char *argv[]){
         u_old[i]=init(x,y);
     }
 
-    double **A=Al(&mesh);//剛性行列
+    double **A=Al(weak_form,&mesh);//剛性行列
 
     double *err=dvector(1,np);//空のベクトル
     Diriclet(&mesh,A,err);//ディリクレ境界条件の挿入(行列のみ)
-    // matrix_vector_print(mesh,A,err);
     free_dvector(err,1,np);
 
     double **L=dmatrix(1,np,1,np);
     double **U=dmatrix(1,np,1,np);
     LU(A,np,L,U);  
 
+    for(int T=0;T<100;T++){//時刻Tにおいて解を求める
 
-    for(int T=0;T<1000;T++){//時刻Tにおいて解を求める
-        double *RHS=out_force(&mesh,u_old);//要素質量ベクトル
+        double *RHS=out_force(pre_sol,&mesh,u_old);//要素質量ベクトル
 
         double **ERR=dmatrix(1,np,1,np);
         Diriclet(&mesh,ERR,RHS);//ディリクレ境界条件の挿入(ベクトルのみ)
@@ -324,7 +209,7 @@ int main(int argc,char *argv[]){
         // make_mesh_data_for_GLSC(mesh,u_old,str);//gnuplot用のファイル作成
         make_result_data_for_GLSC(&mesh,u_old,str);//GLSC用のデータ出力
 
-        printf("t=%f,|u|=%f\n",delta_t*T,vector_norm1(u_old,1,mesh.np));
+        printf("t=%f,|u|=%f\n",delta_t*T,vector_norm1(u_old,1,mesh.np,1.0));
     
         double *u=LU_Decomp(L,U,RHS,mesh.np);//解の計算
 
@@ -347,3 +232,34 @@ int main(int argc,char *argv[]){
 
     return 0;
 }
+
+// typedef double (*test_func)(double x,double y);
+
+// double a(double x,double y){
+//     return x;
+// }
+
+// double da(test_func func,double x){
+//     double h=0.001;
+//     double y=0.0;
+//     double df=func(x+h,y)-func(x-h,y);
+
+//     return df/(2*h);
+// }
+
+// double Sa(test_func func,double a,double b){
+//     double y=0.0;
+//     double N=1000;
+//     double sum=0.0;
+//     for(int i=0;i<=N;i++){
+//         double xi=a+(b-a)*(i/N);
+//         sum+=func(xi,y);
+//     }
+//     return sum/N;
+// }
+
+// int main(void){
+//     test_func func=&a;
+//     printf("%f\n",da(a,1));
+//     return 0;
+// }

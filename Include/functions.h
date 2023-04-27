@@ -165,33 +165,23 @@ double inner_product( int m, int n, double *a, double *b){
   for( i = m; i <= n; i++) s += a[i]*b[i];
   return s;
 }
-double vector_norm1( double *a, int m, int n ){
+
+double vector_norm1( double *a, int m, int n,double p){
   int i; 
   double norm = 0.0;
   double num=0;
   for ( i = m; i <= n; i++ ){
     num+=1.0;
-    norm += fabs(a[i]);
+    norm += pow(fabs(a[i]),p);
   }
-  return norm/num; 
+  return pow(norm/num,1/p); 
 }
-//ベクトルのノルム
-double norm(double *X1,int m, int n){
-  double sum=0.0;
-  double num=0;
-  for(int i=m;i<=n;i++){
-    num+=1.0;
-    sum+=pow(X1[i],2);
-  }
-  return sqrt(sum/num);
-}
-
 
 //２本のベクトルからなす角を計算する
 double arg(double *x1,double *x2,int M){
   int sta=1;
   int end=sta+M;
-  return acos(inner_product(0,M,x1,x2)/(norm(x1,sta,end)*norm(x2,sta,end)));
+  return acos(inner_product(0,M,x1,x2)/(vector_norm1(x1,sta,end,2)*vector_norm1(x2,sta,end,2)));
 }
 
 int factorial(int n){

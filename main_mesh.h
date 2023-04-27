@@ -1,5 +1,8 @@
 #include "Include/functions.h"
 
+#define D 0.02 //Diffusion Coefficient
+#define delta_t 0.01//time step
+
 typedef struct mesh{
     int dim, np, ne, nb;//データの次元，節点数，要素数，境界数
     double **npxy;//節点座標対応表
@@ -20,9 +23,25 @@ double **NumInt_deg_two(mesh_t *mesh,int K);//積分点の計算
 double **NumInt_deg_five(mesh_t *mesh,int K);//積分点の計算
 double *coef_plate_grad(mesh_t *mesh ,int K,int Pi);//要素KにおけるPiで１となる平面の勾配
 double L(mesh_t *mesh,int i,int j);//２点間の距離
-double **permu(double *a,double b,int N);
-void make_result_data_for_GLSC(mesh_t *mesh,double *u,char *str);
-void make_coef_matrix(mesh_t *mesh,double **A,double *b,int t);
+double **permu(double *a,double b,int N);//順列
+void make_result_data_for_GLSC(mesh_t *mesh,double *u,char *str);//GLSC用のデータ
+void make_coef_matrix(mesh_t *mesh,double **A,double *b,int t);//係数行列の作成
+double area(mesh_t *mesh,int Kl);//Klの面積
+double f(double x,double y);//Nonlinear function
+double g(double x,double y);//Diriclet boundary condition's function
+double g1(double x,double y);//Neumman boundary condition's function
+double init(double x,double y);//initial condition
+double *u(double x,double y);//Already given vector
+
+
+typedef double (* pfunc)(mesh_t *mesh,int Kl,int i,int j,double x,double y);//被積分関数の定義
+double Int_div_five(pfunc func,mesh_t *mesh,int Kl,int i,int j);//pfunc型の関数の数値積分
+
+typedef double (*weak)(mesh_t *mesh,int Kl,int i,int j);//弱形式の入る関数ポインタ
+double **Al(weak weak_form,mesh_t *mesh);
+
+typedef double (*out)(double *u_p,int i,double x,double y);//右辺の離散化における関数
+double *out_force(out RHS,mesh_t *mesh,double *u_old);
 
 
 void alloc_scan_mesh(mesh_t *mesh,char *s1,char *s2){
@@ -215,61 +234,61 @@ int count(mesh_t *mesh,double x,double y){
 
 
 // void drawney(mesh_t *mesh){
-    // int np=mesh->np,ne=mesh->ne,nb=mesh->nb,dim=mesh->dim,n=mesh->n;
-    // double **npxy;
-    // int **elnp, **bound;
-    // npxy = mesh->npxy;
-    // elnp = mesh->elnp;
-    // bound = mesh->bound;
+//     int np=mesh->np,ne=mesh->ne,nb=mesh->nb,dim=mesh->dim,n=mesh->n;
+//     double **npxy;
+//     int **elnp, **bound;
+//     npxy = mesh->npxy;
+//     elnp = mesh->elnp;
+//     bound = mesh->bound;
 
-    // /*============1st========super Triangle============*/
-    // //最大最小値の探索
-    // double max=npxy[1][1];
-    // double min=npxy[1][1];
-    // for(int i=1;i<=np;i++){
-    //     for(int j=0;j<dim;j++){
-    //         if(max<=npxy[i][j]){
-    //             max=npxy[i][j];
-    //         }
-    //         if(min>=npxy[i][j]){
-    //             min=npxy[i][j];
-    //         }
-    //     }   
-    // }
-    // //上記４点によってなされる正方形に外接する円の情報
-    // double L=0.5*sqrt(2)*fabs(max-min);
-    // //三角形の内心=正方形の中心(x0,x0)
-    // double x0=min+0.5*fabs(max-min);
-    // double y0=x0;
-    // //SuperTriangleを作る座標
-    // double tx=x0,ty=y0+2.0*L;
-    // double tx1=x0-sqrt(3)*L;
-    // double ty1=y0-L;
-    // double tx2=x0+sqrt(3)*L;
-    // double ty2=y0-L;
+//     /*============1st========super Triangle============*/
+//     //最大最小値の探索
+//     double max=npxy[1][1];
+//     double min=npxy[1][1];
+//     for(int i=1;i<=np;i++){
+//         for(int j=0;j<dim;j++){
+//             if(max<=npxy[i][j]){
+//                 max=npxy[i][j];
+//             }
+//             if(min>=npxy[i][j]){
+//                 min=npxy[i][j];
+//             }
+//         }   
+//     }
+//     //上記４点によってなされる正方形に外接する円の情報
+//     double L=0.5*sqrt(2)*fabs(max-min);
+//     //三角形の内心=正方形の中心(x0,x0)
+//     double x0=min+0.5*fabs(max-min);
+//     double y0=x0;
+//     //SuperTriangleを作る座標
+//     double tx=x0,ty=y0+2.0*L;
+//     double tx1=x0-sqrt(3)*L;
+//     double ty1=y0-L;
+//     double tx2=x0+sqrt(3)*L;
+//     double ty2=y0-L;
 
-    // Super Triangleの座標行列
-    // double **Coord=dmatrix(1,n,1,dim);
-    // Coord[1][1]=tx;Coord[1][2]=ty;
-    // Coord[2][1]=tx1;Coord[2][2]=ty1;
-    // Coord[3][1]=tx2;Coord[3][2]=ty2;
+//     Super Triangleの座標行列
+//     double **Coord=dmatrix(1,n,1,dim);
+//     Coord[1][1]=tx;Coord[1][2]=ty;
+//     Coord[2][1]=tx1;Coord[2][2]=ty1;
+//     Coord[3][1]=tx2;Coord[3][2]=ty2;
     
-    /*=================================================*/
+//     /*=================================================*/
 
-    /*==============2nd==============線を引く============*/
+//     /*==============2nd==============線を引く============*/
 
-    // int data_number=1;
-    // double *Xi=dvector(1,dim);
-    // for(int i=1;i<=dim;i++)Xi[i]=npxy[data_number][i];
+//     int data_number=1;
+//     double *Xi=dvector(1,dim);
+//     for(int i=1;i<=dim;i++)Xi[i]=npxy[data_number][i];
     
-    // int C=count(Coord,Xi);
+//     int C=count(Coord,Xi);
 
-    // free_dmatrix(Coord,1,n,1,dim);
-    // free_dvector(Xi,dim);
+//     free_dmatrix(Coord,1,n,1,dim);
+//     free_dvector(Xi,dim);
 
-    // printf("%d\n",C);
+//     printf("%d\n",C);
     
-    /*==================================================*/
+//     /*==================================================*/
 // }
 
 double *coord(mesh_t *mesh,int K,int x){
@@ -324,18 +343,17 @@ double **permu(double *a,double b,int N){
     return Ret;
 }
 
-// //重心座標の積分計算
-// double Integer(int *alpfa){
-//     mesh_t mesh;
-//     int d=mesh.dim;
-//     //∫φi^i φj^jdx=(ijd!)/(|i+j|+d)!
-//     int sum=0,product=1;
-//     for(int i=1;i<=d+1;i++){
-//         sum+=alpfa[i];
-//         product*=alpfa[i];
-//     }
-//     return (product*factorial(d))/factorial(sum+d);
-// }
+//φiφjの積分
+double Int(mesh_t *mesh,int i,int j,int Kl){
+    double I=0.0;
+    double S_Kl=area(mesh,Kl);//Kl番目の面積
+    if(i==j){
+        I=S_Kl/6.0;
+    }else{
+        I=S_Kl/12.0;
+    }
+    return I;
+}
 
 //２次元の積分点
 double **NumInt_deg_two(mesh_t *mesh,int K){
@@ -590,7 +608,7 @@ double area(mesh_t *mesh,int l){
     return S_Kl;
 }
 
-double g(double x,double y);//Diriclet boundary condition's function
+
 
 void Diriclet(mesh_t *mesh,double **A,double *b){
     printf("Dirichlet(ディリクレ境界条件の反映)\n");
@@ -667,6 +685,57 @@ void Diriclet(mesh_t *mesh,double **A,double *b){
     //         b[b1]=g(npxy[b1][1],npxy[b1][2]);
     //     }
     // }
+}
+
+
+//φi(u・∇φj)の積分(pfuncと同様の型の関数は積分可能)
+double Int_div_five(pfunc func,mesh_t *mesh,int Kl,int i,int j){
+
+    int dim=mesh->dim;
+    double S=area(mesh,Kl);
+    double **Coord=NumInt_deg_five(mesh,Kl);//積分点の定義,５次
+    int N=7;
+
+    double *Coord_i=coef_plate_grad(mesh,Kl,i);
+    double *Coord_j=coef_plate_grad(mesh,Kl,j);
+
+    double ret=0.0;
+    double w;
+    for(int num=1;num<=N;num++){
+        double x_num_I=Coord[num][1],y_num_I=Coord[num][2];
+        if(i==1){
+            w=9.0/40.0;
+        }else if(2<=i && i<=4){
+            w=(155.0-sqrt(15))/1200.0;
+        }else{
+            w=(155.0+sqrt(15))/1200.0;
+        }
+
+        // double *U=u(x_num_I,y_num_I);
+        // // double div=div_u(mesh,x_num_I,y_num_I);
+
+        // // double div_int=div*phi(mesh,i,x_num_I,y_num_I,Kl)*phi(mesh,j,x_num_I,y_num_I,Kl);//(∇・u)φiφj
+        // // printf("∇・u=%f,phi_i=%f,phi_j%f\n",div,phi(mesh,i,x_num_I,y_num_I,Kl),phi(mesh,j,x_num_I,y_num_I,Kl));
+
+        // double phi_i_int=inner_product(1,dim,U,Coord_i);//u・∇φi
+        // // printf("u・∇φj=%f,",phi_i_int);
+        // double phi_j_int=inner_product(1,dim,U,Coord_j);//u・∇φj
+        // // printf("u・∇φj=%f,",phi_j_int);
+        // double phi_i=phi(mesh,i,x_num_I,y_num_I,Kl);//φi
+        // double phi_j=phi(mesh,j,x_num_I,y_num_I,Kl);//φj
+
+        double cover_int=func(mesh,Kl,i,j,x_num_I,y_num_I);
+        // double cover_int=phi_i*phi_j_int-phi_j*phi_i_int;
+        ret+=w*cover_int;
+
+        // free_dvector(U,1,dim);
+    }
+
+    // free_dmatrix(Coord,1,N,1,mesh->np);
+    // free_dvector(Coord_i,0,dim);
+    // free_dvector(Coord_j,0,dim);
+
+    return S*ret;
 }
 
 double phi(mesh_t *mesh,int i,double x,double y,int Kl){
@@ -822,3 +891,160 @@ void make_coef_matrix(mesh_t *mesh,double **A,double *b,int t){
     }
     fclose(write_vector);
 }
+
+//要素剛性行列の作成
+double **Al(weak weak_form,mesh_t *mesh){
+    printf("Al(要素剛性行列)\n");
+    /*==================構造体のデータ読み込み==========================*/
+    int dim=mesh->dim;
+    int n=mesh->n;
+    int np=mesh->np;
+    int ne=mesh->ne;
+    // int nb=mesh->nb;
+    // double **npxy;
+    int **elnp;//,**bound;
+    // npxy = mesh->npxy;
+    elnp = mesh->elnp;
+    // bound = mesh->bound;
+    /*==============================================================*/
+
+    double **A=dmatrix(1,np,1,np);//要素剛性行列Aの初期化
+
+    for(int l=1;l<=ne;l++){
+        //要素KlがPi,Pj,Pkで構成されている
+        // double S_Kl=area(mesh,l);
+        /*===================剛性行列の成分計算==========================*/
+        for(int i=1;i<=n;i++){
+            for(int j=1;j<=n;j++){
+                int ver1=elnp[l][i],ver2=elnp[l][j];//lを構成するi番目の節点番号
+
+                // double *C_i=coef_plate_grad(mesh,l,ver1);//φiの勾配
+                // double *C_j=coef_plate_grad(mesh,l,ver2);//φjの勾配
+
+                // /*======ここを問題の弱形式に応じて変更する========*/
+                // double Int_ij=Int(mesh,i,j,l);
+                // double Int_div_ij=Int_div_five(func,mesh,l,ver1,ver2);
+                // double Int_div_ji=Int_div_five(func,mesh,l,ver2,ver1);
+
+                // //printf("(%d,%d),%.2f,%.2f,",i,j,Int_div_ij,Int_div_ji);
+
+                // double Discreate_WeakForm=Int_ij+0.5*delta_t*(Int_div_ij-Int_div_ji)+D*delta_t*inner_product(1,dim,C_i,C_j)*S_Kl;
+                double Discreate_WeakForm=weak_form(mesh,l,i,j);
+                // /*==========================================*/
+                A[ver1][ver2]+=Discreate_WeakForm;//弱形式の離散結果
+                
+                // free_dvector(C_i,0,dim);
+                // free_dvector(C_j,0,dim);
+            }
+        }
+    }   
+    return A;
+}
+
+
+double *out_force(out RHS,mesh_t *mesh,double *u_old){
+    printf("out_force(外力項の離散化)\n");
+    /*==================構造体のデータ読み込み==========================*/
+    // int dim=mesh->dim;
+    int n=mesh->n;
+    int np=mesh->np;
+    int ne=mesh->ne;
+    int nb=mesh->nb;
+    double **npxy;
+    int **elnp,**bound;
+    npxy = mesh->npxy;
+    elnp = mesh->elnp;
+    bound = mesh->bound;
+    /*==============================================================*/
+
+    double *return_vector=dvector(1,np);
+
+    /*========外力項の計算=========*/
+    for(int l=1;l<=ne;l++){
+        //要素KlがPi,Pj,Pkで構成されている
+        double **M=dmatrix(1,n,1,n);//要素質量行列
+        // double *f_vector=dvector(1,n);
+        double *u_old_vector=dvector(1,n);
+        /*===================剛性行列の作成==========================*/
+        for(int i=1;i<=n;i++){  
+            for(int j=1;j<=n;j++){
+                // int ver1=elnp[l][i],ver2=elnp[l][j];//lを構成するi番目の節点番号
+                /*==========∫φiφjdxの計算結果代入==============*/
+                double I=Int(mesh,i,j,l);
+                /*==========================================*/
+                M[i][j]+=I;
+            }
+        }
+        /*=========================================================*/
+
+        /*==================要素質量外力ベクトル======================*/
+        for(int i=1;i<=n;i++){
+            int ver1=elnp[l][i];
+            double x=npxy[ver1][1],y=npxy[ver1][2];
+            // f_vector[i]=f(x,y);
+            u_old_vector[i]=RHS(u_old,ver1,x,y);
+        }
+        // double *rhs=matrix_vector_product(M,f_vector,n);
+        double *rhs_1=matrix_vector_product(M,u_old_vector,n);
+        /*=========================================================*/
+
+        /*================返すベクトルに値を代入していく================*/
+        for(int i=1;i<=n;i++){
+            int ver1=elnp[l][i];
+            return_vector[ver1]+=rhs_1[i];
+        }
+        /*=========================================================*/
+
+        // free_dvector(f_vector,1,n);
+        free_dvector(u_old_vector,1,n);
+        free_dmatrix(M,1,n,1,n);
+        // free_dvector(rhs,1,np);
+        free_dvector(rhs_1,1,np);
+    }
+
+    
+    /*=====================ノイマン条件の反映=====================*/
+    for(int b=1;b<=nb;b++){
+        int Gamma=2;
+        if(bound[b][n]==Gamma){
+            int Neumman_dim=2;
+            double **B=dmatrix(1,Neumman_dim,1,Neumman_dim);//二次元上の直線
+            double *Neumman_vector=dvector(1,Neumman_dim);//g1を反映すベクトル
+
+            int ver1=bound[b][1],ver2=bound[b][2];
+            double Lij=L(mesh,ver1,ver2);
+
+            for(int i=1;i<=Neumman_dim;i++){
+                for(int j=1;j<=Neumman_dim;j++){
+                    int value;
+                    if(i==j){
+                        value=2;
+                    }else{
+                        value=1;
+                    }
+                    B[i][j]=Lij*value/6.0;
+                }
+            }
+
+            for(int i=1;i<=Neumman_dim;i++){
+                int ver=bound[b][i];
+                Neumman_vector[i]=D*delta_t*g1(npxy[ver][1],npxy[ver][2]);
+            }
+
+            double *rhs_Neumman=matrix_vector_product(B,Neumman_vector,Neumman_dim);
+
+            for(int i=1;i<=Neumman_dim;i++){
+                int ver1=bound[b][i];
+                return_vector[ver1]+=rhs_Neumman[i];
+            }
+
+            free_dvector(rhs_Neumman,1,Neumman_dim);
+            free_dmatrix(B,1,Neumman_dim,1,Neumman_dim);
+            free_dvector(Neumman_vector,1,Neumman_dim);
+        }
+    }    
+    /*=========================================================*/
+
+    return return_vector;
+}
+

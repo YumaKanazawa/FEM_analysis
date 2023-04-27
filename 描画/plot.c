@@ -4,6 +4,9 @@
 double g(double x,double y){
     return x+y;
 }
+double g1(double x,double y){
+    return 0.0;
+}
 
 #include<glsc3d_3.h>//glsc3Dを用いるときに使用
 
@@ -279,7 +282,7 @@ int main(int argc,char *argv[]){
     int dim_v=atoi(argv[4]);
 
     graph_shape(dim_v);
-    for(int T=0;T<1000;T++){
+    for(int T=0;T<100;T++){
         graph_shape(dim_v);
         
         char str[200];

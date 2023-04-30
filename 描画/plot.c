@@ -282,7 +282,7 @@ int main(int argc,char *argv[]){
     int dim_v=atoi(argv[4]);
 
     graph_shape(dim_v);
-    for(int T=0;T<100;T++){
+    for(int T=0;T<314;T++){
         graph_shape(dim_v);
         
         char str[200];

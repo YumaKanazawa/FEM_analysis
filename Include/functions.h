@@ -37,7 +37,7 @@
 // }
 
 
-double *dvector(unsigned int i,unsigned  int j){
+double *dvector(int i, int j){
   double *a;
   int length=j-i+1;
   if ( (a=(double *)malloc( (length*sizeof(double)) ) ) == NULL ){
@@ -52,7 +52,7 @@ double *dvector(unsigned int i,unsigned  int j){
   return (a-i);
 }
 
-void free_dvector(double *a,unsigned int i,unsigned int j){
+void free_dvector(double *a,int i,int j){
   if(i!=j){
     free((double*)(a+i));
   }else{
@@ -62,7 +62,7 @@ void free_dvector(double *a,unsigned int i,unsigned int j){
   a=NULL;
 }
 
-int *ivector(unsigned int i,unsigned int j){
+int *ivector(int i,int j){
   int *a;
   if ( (a=(int *)malloc( ((j-i+1)*sizeof(int))) ) == NULL ){
     printf("ivector: memory allocation is failed \n");
@@ -74,7 +74,7 @@ int *ivector(unsigned int i,unsigned int j){
   return (a-i);
 }
 
-void free_ivector(int *a,unsigned int i,unsigned int j){
+void free_ivector(int *a,int i,int j){
   if(i!=j){
     free(a+i);
   }else{
@@ -84,7 +84,7 @@ void free_ivector(int *a,unsigned int i,unsigned int j){
   a=NULL;
 }
 
-double **dmatrix(unsigned int nr1,unsigned int nr2,unsigned int nl1,unsigned int nl2){
+double **dmatrix(int nr1,int nr2,int nl1,int nl2){
   int i, nrow, ncol; 
   double **a; 
   nrow = nr2 - nr1 + 1 ; // number of row
@@ -105,14 +105,18 @@ double **dmatrix(unsigned int nr1,unsigned int nr2,unsigned int nl1,unsigned int
   return a;
 }
 
-void free_dmatrix(double **a,unsigned int nr1,unsigned int nr2,unsigned int nl1,unsigned int nl2){
-  for (int i = nr1 ; i <= nr2 ; i++) free((void *)(a[i]+nl1));
-  free((void *)(a+nr1));
+void free_dmatrix(double **a,int nr1,int nr2,int nl1,int nl2){
+  if(nl2!=nl1 && nr2!=nr1){
+    for (int i = nr1 ; i <= nr2 ; i++) free((void *)(a[i]+nl1));
+    free((void *)(a+nr1));
+  }else{
+    printf("Non Matrix dimension!\n");
+  }
   return;
 }
 
 
-int **imatrix(unsigned int nr1,unsigned int nr2,unsigned int nl1,unsigned int nl2){
+int **imatrix(int nr1,int nr2,int nl1,int nl2){
   int i, nrow, ncol;
   int **a; 
   nrow = nr2 - nr1 + 1 ; /* number of row */
@@ -134,15 +138,17 @@ int **imatrix(unsigned int nr1,unsigned int nr2,unsigned int nl1,unsigned int nl
   return (a);
 }
 
-void free_imatrix(int **a, unsigned int nr1,unsigned int nr2,unsigned int nl1,unsigned int nl2){
-  int i=nl2;
-
-  for ( i = nr1 ; i <= nr2 ; i++) free((void *)(a[i]+nl1));
-  free((void *)(a+nr1));
+void free_imatrix(int **a, int nr1,int nr2,int nl1,int nl2){
+  if(nl2!=nl1 && nr2!=nr1){
+    for (int i = nr1 ; i <= nr2 ; i++) free((void *)(a[i]+nl1));
+    free((void *)(a+nr1));
+  }else{
+    printf("Non Matrix dimension!\n");
+  }
   return;
 }
 
-double *matrix_vector_product(double **a, double *b ,unsigned int n){
+double *matrix_vector_product(double **a, double *b ,int n){
   int sta=1;
   int end=sta+n-1;
   double *c=dvector(1,n);
@@ -166,6 +172,7 @@ double inner_product( int m, int n, double *a, double *b){
   return s;
 }
 
+//Lpノルム
 double vector_norm1( double *a, int m, int n,double p){
   int i; 
   double norm = 0.0;

@@ -1,6 +1,6 @@
 load "medit"
 //メッシュ作成用のプログラム
-int Diriclet=2,Neumann=2;
+int Diriclet=1,Neumann=2;
 
 int sepD=150;
 int sepN=sepD;
@@ -15,16 +15,19 @@ real fin=sta+2*pi;
 border CC1(t=sta,fin){x=cos(t)+a;y=sin(t)+b;label=Neumann;};
 // border CC(t=(1-rho)*pi,(1+rho)*pi){x=cos(t)+a;y=sin(t)+b;label=Diriclet;};
 // border CC2(t=(1-rho)*pi,fin){x=cos(t)+a;y=sin(t)+b;label=Neumann;};
-mesh Th=buildmesh(CC1(sepN));
+// mesh Th=buildmesh(CC1(sepN));
 
-border b1(t=0,1){x=t;y=0;label=Neumann;};
+border b1(t=0,1){x=t;y=0;label=Diriclet;};
 border b2(t=0,1){x=1;y=t;label=Diriclet;};
-border b3(t=0,1){x=1-t;y=1;label=Neumann;};
+border b3(t=0,1){x=1-t;y=1;label=Diriclet;};
 border b4(t=0,1){x=0;y=1-t;label=Diriclet;};
 // mesh Th=buildmesh(b1(sep)+b2(sep)+b3(sep)+b4(sep));
 
+real range=1.0;
+mesh Th=square(100,100,[2*range*x-range,2*range*y-range]);
+
 savemesh(Th,"mesh01.msh");
-medit("mesh01.msh",Th,wait=true);
+// medit("mesh01.msh",Th,wait=true);
 // fespace Vh(Th,P1);
 
 // func f=1.0;

@@ -1,8 +1,5 @@
 #include "Include/functions.h"
 
-#define D 0.02 //Diffusion Coefficient
-#define delta_t 0.01//time step
-
 typedef struct mesh{
     int dim, np, ne, nb;//データの次元，節点数，要素数，境界数
     double **npxy;//節点座標対応表
@@ -27,11 +24,14 @@ double **permu(double *a,double b,int N);//順列
 void make_result_data_for_GLSC(mesh_t *mesh,double *u,char *str);//GLSC用のデータ
 void make_coef_matrix(mesh_t *mesh,double **A,double *b,int t);//係数行列の作成
 double area(mesh_t *mesh,int Kl);//Klの面積
+double err(mesh_t,*mesh,double *u,double p);//解析解との誤差
 double f(double x,double y);//Nonlinear function
 double g(double x,double y);//Diriclet boundary condition's function
 double g1(double x,double y);//Neumman boundary condition's function
 double init(double x,double y);//initial condition
 double *u(double x,double y);//Already given vector
+
+double u_exa(double x,double y,double t);
 
 
 typedef double (* pfunc)(mesh_t *mesh,int Kl,int i,int j,double x,double y);//被積分関数の定義
@@ -608,8 +608,6 @@ double area(mesh_t *mesh,int l){
     return S_Kl;
 }
 
-
-
 void Diriclet(mesh_t *mesh,double **A,double *b){
     printf("Dirichlet(ディリクレ境界条件の反映)\n");
     /*==================構造体のデータ読み込み==========================*/
@@ -628,7 +626,6 @@ void Diriclet(mesh_t *mesh,double **A,double *b){
 
     int Gamma=2;//ノイマン境界の番号指定
     int Dir=1;
-
 
     /*=========================step1 fi=fi-ΣAijg(Pj)==================================*/
     for(int i=1;i<=nb;i++){
@@ -687,17 +684,16 @@ void Diriclet(mesh_t *mesh,double **A,double *b){
     // }
 }
 
-
 //φi(u・∇φj)の積分(pfuncと同様の型の関数は積分可能)
 double Int_div_five(pfunc func,mesh_t *mesh,int Kl,int i,int j){
 
-    int dim=mesh->dim;
+    // int dim=mesh->dim;
     double S=area(mesh,Kl);
     double **Coord=NumInt_deg_five(mesh,Kl);//積分点の定義,５次
     int N=7;
 
-    double *Coord_i=coef_plate_grad(mesh,Kl,i);
-    double *Coord_j=coef_plate_grad(mesh,Kl,j);
+    // double *Coord_i=coef_plate_grad(mesh,Kl,i);
+    // double *Coord_j=coef_plate_grad(mesh,Kl,j);
 
     double ret=0.0;
     double w;
@@ -937,10 +933,14 @@ double **Al(weak weak_form,mesh_t *mesh){
                 // free_dvector(C_j,0,dim);
             }
         }
-    }   
+    }
+
+    double *err=dvector(1,np);
+    Diriclet(mesh,A,err);
+    free_dvector(err,1,np);
+    
     return A;
 }
-
 
 double *out_force(out RHS,mesh_t *mesh,double *u_old){
     printf("out_force(外力項の離散化)\n");
@@ -1028,7 +1028,7 @@ double *out_force(out RHS,mesh_t *mesh,double *u_old){
 
             for(int i=1;i<=Neumman_dim;i++){
                 int ver=bound[b][i];
-                Neumman_vector[i]=D*delta_t*g1(npxy[ver][1],npxy[ver][2]);
+                Neumman_vector[i]=g1(npxy[ver][1],npxy[ver][2]);
             }
 
             double *rhs_Neumman=matrix_vector_product(B,Neumman_vector,Neumman_dim);
@@ -1045,6 +1045,36 @@ double *out_force(out RHS,mesh_t *mesh,double *u_old){
     }    
     /*=========================================================*/
 
+    double **dummy=dmatrix(1,np,1,np);
+    Diriclet(mesh,dummy,return_vector);
+    free_dmatrix(dummy,1,np,1,np);
+
     return return_vector;
 }
 
+//Lp誤差
+double err_Lp(mesh_t *mesh,double *u,double p,double t){//時刻tにおける解析解との誤差
+    double ret;
+    double Lp=0.0;
+
+    if(p==INFINITY){
+        for(int i=1;i<=mesh->np;i++){
+            double x=mesh->npxy[i][1],y=mesh->npxy[i][2];
+            double lp_err=pow(u[i]-u_exa(x,y,t),p);
+            if(Lp<=lp_err){
+                Lp=lp_err;
+            }
+        }
+        Lp=ret;
+    }else{
+        for(int i=1;i<=mesh->np;i++){
+            double x=mesh->npxy[i][1],y=mesh->npxy[i][2];
+            double lp_err=pow(u[i]-u_exa(x,y,t),p);
+            Lp+=lp_err;
+        }
+        ret=pow(Lp/(mesh->np),1/p);
+    }
+
+
+    return ret;  
+}

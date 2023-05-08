@@ -1,11 +1,15 @@
 #!/bin/sh
 
-cd Mesh
-Freefem++ mesh_generate.edp #mesh generate
+# cd Mesh
+# Freefem++ mesh_generate.edp #mesh generate
 
-cd ../PDE
+cd PDE 
 gcc PDE.c -O2 -o PDE
-./PDE 2 ../mesh/mesh01.msh 
+for ((i=1;i<=10;i++)); do
+    ./PDE 2 ../mesh/mesh0$i.msh 
+    # echo "$i"
+done
 
-cd ../描画
-./plot 2 ../mesh/mesh01.msh PDE 3
+
+# cd ../描画
+# ./plot 2 ../mesh/mesh01.msh PDE 3

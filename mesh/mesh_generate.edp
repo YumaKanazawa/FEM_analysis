@@ -4,7 +4,7 @@ int Diriclet=1,Neumann=2;
 
 int sepD=150;
 int sepN=sepD;
-int sep=50;
+int sep=100;
 
 real sta=-pi;
 real rho=1.0;

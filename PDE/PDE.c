@@ -37,6 +37,18 @@ double g1(double x,double y){
     return 0.0;
 }
 
+//誤差のファイル書き出し
+void error_write(double p,double err,char *mesh_name){
+    char file_name[100];//ポインタにするとエラー
+    sprintf(file_name,"advection_diffusion_%c.txt",(char)p);
+
+    FILE *file_open=fopen(file_name,"a");
+    if(file_open==NULL){
+        printf("file_open Error\n");
+        exit(1);
+    }
+    fprintf(file_open,"%s,%f\n",mesh_name,err);
+}
 
 int main(int argc,char *argv[]){
     weak weak_form=&advect;//ここを変える
@@ -78,7 +90,7 @@ int main(int argc,char *argv[]){
 
     for(int T=0;T<M_PI/delta_t;T++){//時刻Tにおいて解を求める
 
-        double err_t=err_Lp(&mesh,u_old,2.0,T*delta_t);
+        double err_t=err_Lp(&mesh,u_old,2.0,T*delta_t);//誤差のL2ノルム
         // if(L2n<=err_t){
         //     L2n=err_t;
         // }
@@ -110,6 +122,7 @@ int main(int argc,char *argv[]){
     }
 
     // printf("l^∞(l2)=%f\n",L2n);
+    error_write(2,pow(L2n/Length,0.5),argv[2]);
     printf("l^2(l2)=%f\n",pow(L2n/Length,0.5));
 
     free_dmatrix(A,1,mesh.np,1,mesh.np);

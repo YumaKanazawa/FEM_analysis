@@ -1,5 +1,6 @@
 #include "../main_mesh.h"//メッシュ作成の関数
 
+
 //ディリクレ境界条件用の関数(ないとエラー吐くので...)
 double g(double x,double y){
     return x+y;

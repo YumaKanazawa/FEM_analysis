@@ -29,7 +29,7 @@ double init(double x,double y){
 
 //ディリクレ境界条件
 double g(double x,double y){
-    return init(x,y);
+    return 0.0;
 }
 
 //ノイマン境界条件
@@ -38,22 +38,23 @@ double g1(double x,double y){
 }
 
 //誤差のファイル書き出し
-void error_write(double p,double err,char *mesh_name){
-    char file_name[100];//ポインタにするとエラー
-    sprintf(file_name,"advection_diffusion_%c.txt",(char)p);
+void error_write(double p,double err){
+    char file_name[50];
+    sprintf(file_name,"advection_diffusion_%d.txt",(int)p);
 
     FILE *file_open=fopen(file_name,"a");
     if(file_open==NULL){
         printf("file_open Error\n");
         exit(1);
     }
-    fprintf(file_open,"%s,%f\n",mesh_name,err);
+    fprintf(file_open,"%d,%f\n",N,err);
+    fclose(file_open);
 }
 
 int main(int argc,char *argv[]){
     weak weak_form=&advect;//ここを変える
     out pre_sol=&RHS_right;//右辺のベクトルの離散化
-
+    printf("N=%d\n",N);
     if(argc < 3){printf("Usage:./PDE_name dim ../Mesh/mesh01.msh\n"); exit(1);}//実行の仕方
     /*==================構造体のデータ読み込み==========================*/
     mesh_t mesh;
@@ -88,7 +89,7 @@ int main(int argc,char *argv[]){
     double L2n=0.0;//時刻nにおける解uのL2ノルム
     int Length=0;//点列の長さを入れる変数
 
-    for(int T=0;T<M_PI/delta_t;T++){//時刻Tにおいて解を求める
+    for(int T=0;T<Nt;T+=1){//時刻Tにおいて解を求める
 
         double err_t=err_Lp(&mesh,u_old,2.0,T*delta_t);//誤差のL2ノルム
         // if(L2n<=err_t){
@@ -122,7 +123,7 @@ int main(int argc,char *argv[]){
     }
 
     // printf("l^∞(l2)=%f\n",L2n);
-    error_write(2,pow(L2n/Length,0.5),argv[2]);
+    error_write(2,pow(L2n/Length,0.5));
     printf("l^2(l2)=%f\n",pow(L2n/Length,0.5));
 
     free_dmatrix(A,1,mesh.np,1,mesh.np);

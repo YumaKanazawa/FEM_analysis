@@ -4,7 +4,7 @@ int Diriclet=1,Neumann=2;
 
 int sepD=150;
 int sepN=sepD;
-int sep=100;
+real sep;
 
 real sta=-pi;
 real rho=1.0;
@@ -17,12 +17,16 @@ border CC1(t=sta,fin){x=cos(t);y=sin(t);label=Neumann;};
 Th=buildmesh(CC1(sepN));
 
 real range=1.0;
-border b1(t=-1,1){x=t;y=-1;label=Diriclet;};
-border b2(t=-1,1){x=1;y=t;label=Diriclet;};
-border b3(t=1,-1){x=t;y=1;label=Diriclet;};
-border b4(t=1,-1){x=-1;y=t;label=Diriclet;};
-Th=buildmesh(b1(sep)+b2(sep)+b3(sep)+b4(sep));
+border b1(t=-range,range){x=t;y=-range;label=Diriclet;};
+border b2(t=-range,range){x=range;y=t;label=Diriclet;};
+border b3(t=range,-range){x=t;y=range;label=Diriclet;};
+border b4(t=range,-range){x=-range;y=t;label=Diriclet;};
 
+for(sep=32;sep<=80;sep+=16){
+    real n=sqrt(2)*sep;//(sep=32;sep<=80;sep+=16)
+    string meshname="mesh"+string(sep)+".msh";
+    Th=buildmesh(b1(n)+b2(n)+b3(n)+b4(n));
+    savemesh(Th,meshname);
+}
 
-savemesh(Th,"mesh01.msh");
 // medit("mesh01.msh",Th,wait=true);

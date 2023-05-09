@@ -1,7 +1,10 @@
 #include "main_mesh.h"//メッシュ作成の関数
 
-#define D 1.25*pow(10,-3)//Diffusion Coefficient
-#define delta_t 0.01//time step
+#define D 1.25*pow(10,-4)//Diffusion Coefficient
+#define N 80
+#define Nt (5/2)*sqrt(sqrt(2)*N)//時間方向の分割数
+#define T_max M_PI
+#define delta_t T_max/Nt //time step;
 
 /*=========================移流拡散=================================*/
 /*ここは手動で入力する*/

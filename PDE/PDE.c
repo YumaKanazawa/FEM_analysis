@@ -47,14 +47,16 @@ void error_write(double p,double err){
         printf("file_open Error\n");
         exit(1);
     }
-    fprintf(file_open,"%d,%f\n",N,err);
+    double h=sqrt(2)/N;
+    fprintf(file_open,"%f,%f\n",h,err);
     fclose(file_open);
 }
 
 int main(int argc,char *argv[]){
-    weak weak_form=&advect;//ここを変える
+    weak weak_form=&heat;//ここを変える
     out pre_sol=&RHS_right;//右辺のベクトルの離散化
-    printf("N=%d\n",N);
+
+    printf("N=%d,Δt=%f\n",N,delta_t);
     if(argc < 3){printf("Usage:./PDE_name dim ../Mesh/mesh01.msh\n"); exit(1);}//実行の仕方
     /*==================構造体のデータ読み込み==========================*/
     mesh_t mesh;
@@ -82,14 +84,15 @@ int main(int argc,char *argv[]){
 
     double **A=Al(weak_form,&mesh);//剛性行列(境界条件込み)
 
-    double **L=dmatrix(1,np,1,np);
-    double **U=dmatrix(1,np,1,np);
-    LU(A,np,L,U);  
+    // double **L=dmatrix(1,np,1,np);
+    // double **U=dmatrix(1,np,1,np);
+    // LU(A,np,L,U); 
 
+    // double *u=LU_Decomp(L,U,RHS,mesh.np);//解の計算
     double L2n=0.0;//時刻nにおける解uのL2ノルム
     int Length=0;//点列の長さを入れる変数
 
-    for(int T=0;T<Nt;T+=1){//時刻Tにおいて解を求める
+    for(int T=0;T<=Nt;T+=1){//時刻Tにおいて解を求める
 
         double err_t=err_Lp(&mesh,u_old,2.0,T*delta_t);//誤差のL2ノルム
         // if(L2n<=err_t){
@@ -103,14 +106,15 @@ int main(int argc,char *argv[]){
         /*============Data output=============*/
         char str[200];
         sprintf(str,"figure/mesh%d.dat",T);
-        // make_mesh_data_for_GLSC(mesh,u_old,str);//gnuplot用のファイル作成
+        // make_mesh_data_for_gnuplot(mesh,u_old,str);//gnuplot用のファイル作成
         make_result_data_for_GLSC(&mesh,u_old,str);//GLSC用のデータ出力
 
         printf("t=%f,|u|=%f\n",delta_t*T,vector_norm1(u_old,1,mesh.np,1.0));
         /*====================================*/
 
         /*============解の更新===========*/
-        double *u=LU_Decomp(L,U,RHS,mesh.np);//解の計算
+        double *u=CG(A,RHS,mesh.np);//解の計算
+        // double *u=LU_Decomp(L,U,RHS,np);
         printf("update solution \n");
         for(int i=1;i<=mesh.np;i++){
             u_old[i]=u[i];
@@ -123,12 +127,12 @@ int main(int argc,char *argv[]){
     }
 
     // printf("l^∞(l2)=%f\n",L2n);
-    error_write(2,pow(L2n/Length,0.5));
+    // error_write(2,pow(L2n/Length,0.5));
     printf("l^2(l2)=%f\n",pow(L2n/Length,0.5));
 
     free_dmatrix(A,1,mesh.np,1,mesh.np);
-    free_dmatrix(L,1,mesh.np,1,mesh.np);
-    free_dmatrix(U,1,mesh.np,1,mesh.np);
+    // free_dmatrix(L,1,mesh.np,1,mesh.np);
+    // free_dmatrix(U,1,mesh.np,1,mesh.np);
     free_dvector(u_old,1,mesh.np);
 
     mesh_free(&mesh);//free

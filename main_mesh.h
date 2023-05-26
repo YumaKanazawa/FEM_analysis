@@ -1054,7 +1054,7 @@ double *out_force(out RHS,mesh_t *mesh,double *u_old){
 
 //Lp誤差
 double err_Lp(mesh_t *mesh,double *u,double p,double t){//時刻tにおける解析解との誤差
-    double ret;
+    double ret=0.0;
     double Lp=0.0;
 
     if(p==INFINITY){

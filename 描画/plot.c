@@ -197,11 +197,11 @@ double u_exa(double x,double y,double t){
     return (1+t*t)*(x/y);
 }
 
-void Result_plot(mesh_t *mesh,int T,char *PDEname,int dim,int waitime){
+void Result_plot(mesh_t *mesh,int T,int dim,int waitime){
     double t=T*0.01;
     char str[200];
 
-    sprintf(str,"../%s/figure/mesh%d.dat",PDEname,T);
+    sprintf(str,"../PDE/figure/mesh%d.dat",T);
     printf("%s\n",str);
 
     double **A=Result_data(mesh,str);
@@ -269,7 +269,7 @@ void Result_plot(mesh_t *mesh,int T,char *PDEname,int dim,int waitime){
 
 int main(int argc,char *argv[]){
     mesh_t mesh;
-    if(argc < 5){printf("Usage:./plot dim ../Mesh/mesh0.msh PDE dim_v\n"); exit(1);}//実行の仕方
+    if(argc < 5){printf("Usage:./plot dim ../Mesh/mesh0.msh dim_v\n"); exit(1);}//実行の仕方
 
     //alloc(and scan)
     alloc_scan_mesh(&mesh,argv[1],argv[2]);//argv[1]=次元の数　argv[2]=meshファイルの名前
@@ -280,7 +280,7 @@ int main(int argc,char *argv[]){
     scanf("%d",&waitime);
     printf("Enterd!\n");
 
-    int dim_v=atoi(argv[4]);
+    int dim_v=atoi(argv[3]);
 
     graph_shape(dim_v);
     for(int T=0;T<314;T++){
@@ -289,7 +289,7 @@ int main(int argc,char *argv[]){
         char str[200];
         sprintf(str,"t=%f",T*0.01);
         g_text_standard(back_x-200,base_y+50,str);//kの描画
-        Result_plot(&mesh,T,argv[3],dim_v,waitime);
+        Result_plot(&mesh,T,dim_v,waitime);
     }
     
     mesh_free(&mesh);//free

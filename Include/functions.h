@@ -10,31 +10,31 @@
 
 // #define sta 1
 
-// argument of (x[1],x[2]) in [0,2\pai) or -1 (the origin)
+//argument of (x[1],x[2]) in [0,2\pai) or -1 (the origin)
 
-// double arg( double *x ){
-//   double eps=1.0e-10, a; 
-//   if ( x[1]*x[1]+x[2]*x[2] < eps ){
-//     return -1.0;
-//   }
-//   if ( x[1] >= fabs(x[2]) ){
-//     a = atan(x[2]/x[1]);
-//     return (a>=0.0)?a:(a+2*pi);
-//   }
-//   if ( x[2] >= fabs(x[1]) ){
-//     a = atan(-x[1]/x[2]);
-//     return a + 0.5*pi;
-//   }
-//   if ( x[1] <= - fabs(x[2]) ){
-//     a = atan(x[2]/x[1]);
-//     return a+pi;
-//   }
-//   if ( x[2] <= - fabs(x[1]) ){
-//     a = atan(-x[1]/x[2]);
-//     return a + 1.5*pi;
-//   }
-//   exit(0);
-// }
+double argument( double *x ){
+  double eps=1.0e-10, a; 
+  if ( x[1]*x[1]+x[2]*x[2] < eps ){
+    return -1.0;
+  }
+  if ( x[1] >= fabs(x[2]) ){
+    a = atan(x[2]/x[1]);
+    return (a>=0.0)?a:(a+2*pi);
+  }
+  if ( x[2] >= fabs(x[1]) ){
+    a = atan(-x[1]/x[2]);
+    return a + 0.5*pi;
+  }
+  if ( x[1] <= - fabs(x[2]) ){
+    a = atan(x[2]/x[1]);
+    return a+pi;
+  }
+  if ( x[2] <= - fabs(x[1]) ){
+    a = atan(-x[1]/x[2]);
+    return a + 1.5*pi;
+  }
+  exit(0);
+}
 
 
 double *dvector(int i, int j){
@@ -151,7 +151,7 @@ void free_imatrix(int **a, int nr1,int nr2,int nl1,int nl2){
 double *matrix_vector_product(double **a, double *b ,int n){
   int sta=1;
   int end=sta+n-1;
-  double *c=dvector(1,n);
+  double *c=dvector(sta,end);
 
   double wk;
   int i, j;
@@ -380,5 +380,57 @@ double *LU_Decomp(double **L,double **U,double *B,int M){
   free_dvector(by,sta,end-1);
 
   return W_out;
+}
+
+double *CG(double **A,double *b,int M){//M次元正定値対称行列
+  int sta=1;
+  int end=sta+M-1;
+
+  double *T=dvector(sta,end);//初期解
+
+  double *nabla_f=dvector(sta,end);//-∇f(=r0)
+  double *d=dvector(sta,end);//directionベクトル
+  for(int i=sta;i<=end;i++){
+    double *AT=matrix_vector_product(A,T,M);
+    nabla_f[i]=b[i]-AT[i];//r0=b-AT
+    d[i]=nabla_f[i];//d0=r0
+  }
+  
+  //k番目について
+  int count=0;
+  while(1 || count>=10000){
+    double dk_rk=inner_product(sta,end,nabla_f,d);
+    double *A_dk=matrix_vector_product(A,d,M);
+    double dk_Adk=inner_product(sta,end,d,A_dk);
+
+    double alpha_k=dk_rk/dk_Adk;//alpha_kの計算
+    double *nabla_new=dvector(sta,end);
+    for(int i=sta;i<=end;i++){
+      T[i]=T[i]+alpha_k*d[i];//T_{k+1}=T_{k}+alpha*d_{k}
+      nabla_new[i]=nabla_f[i]-alpha_k*A_dk[i];//r_{k+1}=r_{k}-alpha*Ad_{k}
+    }
+    
+    if(vector_norm1(nabla_f,sta,end,2.0)<0.01){//終了判定
+      break;
+    }
+
+    double rk1_rk1=inner_product(sta,end,nabla_new,nabla_new);//beta_kの計算
+    double rk_rk=inner_product(sta,end,nabla_f,nabla_f);
+    double beta=rk1_rk1/rk_rk;
+
+    for(int i=sta;i<=end;i++){
+      d[i]=beta*d[i]+nabla_f[i];
+    }
+
+    for(int i=sta;i<=end;i++){
+      nabla_f[i]=nabla_new[i];
+    }
+    free_dvector(nabla_new,sta,end);
+    count+=1;
+  }
+  free_dvector(nabla_f,sta,end);
+  free_dvector(d,sta,end);
+
+  return T;
 }
 

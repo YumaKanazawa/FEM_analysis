@@ -11,22 +11,27 @@ real rho=1.0;
 real fin=sta+2*pi;
 mesh Th;
 
-border CC1(t=sta,fin){x=cos(t);y=sin(t);label=Neumann;};
+border CC1(t=sta,fin){x=cos(t);y=sin(t);label=Diriclet;};
 // border CC(t=(1-rho)*pi,(1+rho)*pi){x=cos(t)+a;y=sin(t)+b;label=Diriclet;};
-// border CC2(t=(1-rho)*pi,fin){x=cos(t)+a;y=sin(t)+b;label=Neumann;};
-Th=buildmesh(CC1(sepN));
+border CC2(t=(1-rho)*pi,fin){x=cos(t)+a;y=sin(t)+b;label=Neumann;};
+Th=buildmesh(CC1(sepN)+CC2(sepD));
 
-real range=1.0;
+real range=0.5;
 border b1(t=-range,range){x=t;y=-range;label=Diriclet;};
 border b2(t=-range,range){x=range;y=t;label=Diriclet;};
 border b3(t=range,-range){x=t;y=range;label=Diriclet;};
 border b4(t=range,-range){x=-range;y=t;label=Diriclet;};
 
 for(sep=32;sep<=80;sep+=16){
-    real n=sqrt(2)*sep;//(sep=32;sep<=80;sep+=16)
+    // real n=sqrt(2)*sep;//(sep=32;sep<=80;sep+=16)
     string meshname="mesh"+string(sep)+".msh";
-    Th=buildmesh(b1(n)+b2(n)+b3(n)+b4(n));
-    savemesh(Th,meshname);
+    // Th=buildmesh(b1(n)+b2(n)+b3(n)+b4(n));
+
+    int[int] labs=[1,1,1,1];
+    // Th=square(sep,sep,[2*range*x-range,2*range*y-range],label=labs);
+    savemesh(Th,"mesh01.msh");
+    // cout<<sep<<","<<hTriangle<<endl;
+    // plot(Th,ps="mesh"+string(sep)+".ps");
 }
 
-// medit("mesh01.msh",Th,wait=true);
+medit("mesh01.msh",Th,wait=true);

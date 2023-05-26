@@ -1,10 +1,11 @@
 #include "main_mesh.h"//メッシュ作成の関数
 
-#define D 1.25*pow(10,-4)//Diffusion Coefficient
-#define N 80
-#define Nt (5/2)*sqrt(sqrt(2)*N)//時間方向の分割数
+#define D 0.1//(1.25*pow(10,-4))//Diffusion Coefficient
+#define N 32
+#define Nt (int)(5*pow(N,2)/2)//時間方向の分割数
 #define T_max M_PI
-#define delta_t T_max/Nt //time step;
+#define delta_t (T_max/Nt) //time step;
+
 
 /*=========================移流拡散=================================*/
 /*ここは手動で入力する*/
@@ -35,6 +36,7 @@ double phi_ij(mesh_t *mesh,int Kl,int i,int j,double x,double y){
     return phi_i*phi_j_int;
 }
 
+/*=========================移流拡散=================================*/
 double advect(mesh_t *mesh,int Kl,int i,int j){
     pfunc func=&phi_ij;
     int dim=mesh->dim;
@@ -57,8 +59,28 @@ double advect(mesh_t *mesh,int Kl,int i,int j){
 
     return ret;
 }
-/*=========================移流拡散=================================*/
+/*===============================================================*/
 
+
+/*=========================poisson=================================*/
+double poisson(mesh_t *mesh,int Kl,int i,int j){
+    int dim=mesh->dim;
+    int **elnp= mesh->elnp;
+
+    double S_Kl=area(mesh,Kl);//Kl番目の面積
+
+    int ver1=elnp[Kl][i],ver2=elnp[Kl][j];//lを構成するi番目の節点番号
+    double *C_i=coef_plate_grad(mesh,Kl,ver1);//φiの勾配
+    double *C_j=coef_plate_grad(mesh,Kl,ver2);//φjの勾配
+
+
+    double ret=D*inner_product(1,dim,C_i,C_j)*S_Kl;
+
+    free_dvector(C_i,0,dim);
+    free_dvector(C_j,0,dim);
+
+    return ret;
+}
 
 /*=========================拡散====================================*/
 //熱方程式の弱形式

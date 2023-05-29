@@ -269,7 +269,7 @@ void Result_plot(mesh_t *mesh,int T,int dim,int waitime){
 
 int main(int argc,char *argv[]){
     mesh_t mesh;
-    if(argc < 5){printf("Usage:./plot dim ../Mesh/mesh0.msh dim_v\n"); exit(1);}//実行の仕方
+    if(argc < 4){printf("Usage:./plot dim ../Mesh/mesh0.msh dim_v\n"); exit(1);}//実行の仕方
 
     //alloc(and scan)
     alloc_scan_mesh(&mesh,argv[1],argv[2]);//argv[1]=次元の数　argv[2]=meshファイルの名前
@@ -281,13 +281,12 @@ int main(int argc,char *argv[]){
     printf("Enterd!\n");
 
     int dim_v=atoi(argv[3]);
-
-    graph_shape(dim_v);
-    for(int T=0;T<314;T++){
+    
+    for(int T=0;T<3140;T++){
         graph_shape(dim_v);
         
         char str[200];
-        sprintf(str,"t=%f",T*0.01);
+        sprintf(str,"t=%d",T);
         g_text_standard(back_x-200,base_y+50,str);//kの描画
         Result_plot(&mesh,T,dim_v,waitime);
     }

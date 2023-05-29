@@ -11,7 +11,6 @@
 // #define sta 1
 
 //argument of (x[1],x[2]) in [0,2\pai) or -1 (the origin)
-
 double argument( double *x ){
   double eps=1.0e-10, a; 
   if ( x[1]*x[1]+x[2]*x[2] < eps ){

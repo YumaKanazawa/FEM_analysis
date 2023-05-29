@@ -53,7 +53,7 @@ void error_write(double p,double err){
 }
 
 int main(int argc,char *argv[]){
-    weak weak_form=&heat;//ここを変える
+    weak weak_form=&advect;//ここを変える
     out pre_sol=&RHS_right;//右辺のベクトルの離散化
 
     printf("N=%d,Δt=%f\n",N,delta_t);
@@ -84,13 +84,14 @@ int main(int argc,char *argv[]){
 
     double **A=Al(weak_form,&mesh);//剛性行列(境界条件込み)
 
-    // double **L=dmatrix(1,np,1,np);
-    // double **U=dmatrix(1,np,1,np);
-    // LU(A,np,L,U); 
 
-    // double *u=LU_Decomp(L,U,RHS,mesh.np);//解の計算
+    double **L=dmatrix(1,np,1,np);
+    double **U=dmatrix(1,np,1,np);
+    LU(A,np,L,U); 
+
     double L2n=0.0;//時刻nにおける解uのL2ノルム
     int Length=0;//点列の長さを入れる変数
+
 
     for(int T=0;T<=Nt;T+=1){//時刻Tにおいて解を求める
 
@@ -113,8 +114,8 @@ int main(int argc,char *argv[]){
         /*====================================*/
 
         /*============解の更新===========*/
-        double *u=CG(A,RHS,mesh.np);//解の計算
-        // double *u=LU_Decomp(L,U,RHS,np);
+        // double *u=CG(A,RHS,mesh.np);//解の計算
+        double *u=LU_Decomp(L,U,RHS,np);
         printf("update solution \n");
         for(int i=1;i<=mesh.np;i++){
             u_old[i]=u[i];
@@ -127,12 +128,12 @@ int main(int argc,char *argv[]){
     }
 
     // printf("l^∞(l2)=%f\n",L2n);
-    // error_write(2,pow(L2n/Length,0.5));
+    error_write(2,pow(L2n/Length,0.5));
     printf("l^2(l2)=%f\n",pow(L2n/Length,0.5));
 
     free_dmatrix(A,1,mesh.np,1,mesh.np);
-    // free_dmatrix(L,1,mesh.np,1,mesh.np);
-    // free_dmatrix(U,1,mesh.np,1,mesh.np);
+    free_dmatrix(L,1,mesh.np,1,mesh.np);
+    free_dmatrix(U,1,mesh.np,1,mesh.np);
     free_dvector(u_old,1,mesh.np);
 
     mesh_free(&mesh);//free

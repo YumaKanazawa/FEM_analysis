@@ -1,5 +1,8 @@
 #include "Include/functions.h"
 
+
+#define SUPG 0.01//SUPG法の定数
+
 typedef struct mesh{
     int dim, np, ne, nb;//データの次元，節点数，要素数，境界数
     double **npxy;//節点座標対応表
@@ -24,12 +27,13 @@ double **permu(double *a,double b,int N);//順列
 void make_result_data_for_GLSC(mesh_t *mesh,double *u,char *str);//GLSC用のデータ
 void make_coef_matrix(mesh_t *mesh,double **A,double *b,int t);//係数行列の作成
 double area(mesh_t *mesh,int Kl);//Klの面積
-double err(mesh_t,*mesh,double *u,double p);//解析解との誤差
+double err(mesh_t *mesh,double *u,double p);//解析解との誤差
 double f(double x,double y);//Nonlinear function
 double g(double x,double y);//Diriclet boundary condition's function
 double g1(double x,double y);//Neumman boundary condition's function
 double init(double x,double y);//initial condition
 double *u(double x,double y);//Already given vector
+double phi_ij(mesh_t *mesh,int Kl,int i,int j,double x,double y);//必要な数値積分用の関数
 
 double u_exa(double x,double y,double t);
 
@@ -684,7 +688,7 @@ void Diriclet(mesh_t *mesh,double **A,double *b){
     // }
 }
 
-//φi(u・∇φj)の積分(pfuncと同様の型の関数は積分可能)
+//pfuncと同様の型の関数の積分
 double Int_div_five(pfunc func,mesh_t *mesh,int Kl,int i,int j){
 
     // int dim=mesh->dim;
@@ -943,6 +947,8 @@ double **Al(weak weak_form,mesh_t *mesh){
 }
 
 double *out_force(out RHS,mesh_t *mesh,double *u_old){
+    pfunc func_SUPG=&phi_ij;
+
     printf("out_force(外力項の離散化)\n");
     /*==================構造体のデータ読み込み==========================*/
     // int dim=mesh->dim;
@@ -970,7 +976,7 @@ double *out_force(out RHS,mesh_t *mesh,double *u_old){
             for(int j=1;j<=n;j++){
                 // int ver1=elnp[l][i],ver2=elnp[l][j];//lを構成するi番目の節点番号
                 /*==========∫φiφjdxの計算結果代入==============*/
-                double I=Int(mesh,i,j,l);
+                double I=Int(mesh,i,j,l)+SUPG*Int_div_five(func_SUPG,mesh,l,i,j);
                 /*==========================================*/
                 M[i][j]+=I;
             }

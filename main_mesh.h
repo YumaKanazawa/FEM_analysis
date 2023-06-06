@@ -1,7 +1,7 @@
 #include "Include/functions.h"
 
 
-#define SUPG 0.01//SUPG法の定数
+#define SUPG 0.0//SUPG法の定数
 
 typedef struct mesh{
     int dim, np, ne, nb;//データの次元，節点数，要素数，境界数
@@ -27,7 +27,7 @@ double **permu(double *a,double b,int N);//順列
 void make_result_data_for_GLSC(mesh_t *mesh,double *u,char *str);//GLSC用のデータ
 void make_coef_matrix(mesh_t *mesh,double **A,double *b,int t);//係数行列の作成
 double area(mesh_t *mesh,int Kl);//Klの面積
-double err(mesh_t *mesh,double *u,double p);//解析解との誤差
+double err_Lp(mesh_t *mesh,double *u,double p,double t);//解析解との誤差
 double f(double x,double y);//Nonlinear function
 double g(double x,double y);//Diriclet boundary condition's function
 double g1(double x,double y);//Neumman boundary condition's function
@@ -1080,7 +1080,5 @@ double err_Lp(mesh_t *mesh,double *u,double p,double t){//時刻tにおける解
         }
         ret=pow(Lp/(mesh->np),1/p);
     }
-
-
     return ret;  
 }

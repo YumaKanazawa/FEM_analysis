@@ -19,7 +19,7 @@ double u_exa(double x,double y,double t){
 
 //nonlinear of advection diffusion equation
 double f(double x,double y){
-    return 0.0;
+    return 1.0;
 }
 
 //initial condition
@@ -52,42 +52,34 @@ void error_write(double p,double err){
     fclose(file_open);
 }
 
-int main(int argc,char *argv[]){
-    weak weak_form=&advect;//ここを変える
-    out pre_sol=&RHS_right;//右辺のベクトルの離散化
 
+//移流拡散(一回微分を含む方程式)
+int main(int argc,char *argv[]){
+    weak weak_form=&heat;//ここを変える
+    out pre_sol=&RHS_heat;//右辺のベクトルの離散化
+
+    // main_mesh.hのSUPGの値を0にする．
     printf("N=%d,Δt=%f\n",N,delta_t);
     if(argc < 3){printf("Usage:./PDE_name dim ../Mesh/mesh01.msh\n"); exit(1);}//実行の仕方
     /*==================構造体のデータ読み込み==========================*/
     mesh_t mesh;
     //alloc(and scan)
     alloc_scan_mesh(&mesh,argv[1],argv[2]);//argv[1]=次元の数　argv[2]=meshファイルの名前
-    // int dim=mesh.dim;
-    // int n=mesh.n;
     int np=mesh.np;
-    // int ne=mesh.ne;
-    // int nb=mesh.nb;
-    // double **npxy;
-    // int **elnp;
-    // int **bound;
-    // npxy = mesh.npxy;
-    // elnp = mesh.elnp;
-    // bound = mesh.bound;
     /*==============================================================*/
 
     //初期条件の代入
-    double *u_old=dvector(1,mesh.np);
-    for(int i=1;i<=mesh.np;i++){
+    double *u_old=dvector(1,np);
+    for(int i=1;i<=np;i++){
         double x=mesh.npxy[i][1],y=mesh.npxy[i][2];
         u_old[i]=init(x,y);
     }
 
     double **A=Al(weak_form,&mesh);//剛性行列(境界条件込み)
 
-
-    double **L=dmatrix(1,np,1,np);
-    double **U=dmatrix(1,np,1,np);
-    LU(A,np,L,U); 
+    // double **L=dmatrix(1,np,1,np);
+    // double **U=dmatrix(1,np,1,np);
+    // LU(A,np,L,U); 
 
     double L2n=0.0;//時刻nにおける解uのL2ノルム
     int Length=0;//点列の長さを入れる変数
@@ -110,20 +102,21 @@ int main(int argc,char *argv[]){
         // make_mesh_data_for_gnuplot(mesh,u_old,str);//gnuplot用のファイル作成
         make_result_data_for_GLSC(&mesh,u_old,str);//GLSC用のデータ出力
 
-        printf("t=%f,|u|=%f\n",delta_t*T,vector_norm1(u_old,1,mesh.np,1.0));
+        printf("t=%d,|u|=%f\n",T,vector_norm1(u_old,1,np,1.0));
         /*====================================*/
 
         /*============解の更新===========*/
-        // double *u=CG(A,RHS,mesh.np);//解の計算
-        double *u=LU_Decomp(L,U,RHS,np);
+        double *u=CG_CRS(A,RHS,np);//解の計算
+        // double *u=LU_Decomp(L,U,RHS,np);
         printf("update solution \n");
-        for(int i=1;i<=mesh.np;i++){
+        for(int i=1;i<=np;i++){
             u_old[i]=u[i];
+            // printf("%f\n",u[i]);    
         }
         /*=============================*/
         
-        free_dvector(u,1,mesh.np);
-        free_dvector(RHS,1,mesh.np);
+        free_dvector(u,1,np);
+        free_dvector(RHS,1,np);
 
     }
 
@@ -131,12 +124,57 @@ int main(int argc,char *argv[]){
     error_write(2,pow(L2n/Length,0.5));
     printf("l^2(l2)=%f\n",pow(L2n/Length,0.5));
 
-    free_dmatrix(A,1,mesh.np,1,mesh.np);
-    free_dmatrix(L,1,mesh.np,1,mesh.np);
-    free_dmatrix(U,1,mesh.np,1,mesh.np);
-    free_dvector(u_old,1,mesh.np);
+    free_dmatrix(A,1,np,1,np);
+    // free_dmatrix(L,1,np,1,np);
+    // free_dmatrix(U,1,np,1,np);
+    free_dvector(u_old,1,np);
 
     mesh_free(&mesh);//free
 
     return 0;
 }
+
+
+// //ポアソン方程式(時間微分を含まない)
+// int main(int argc,char *argv[]){
+//     weak weak_form=&poisson;//ここを変える
+//     out pre_sol=&RHS_poisson;//右辺のベクトルの離散化
+
+//     //main_mesh.hのSUPGの値を0にする．
+
+//     printf("N=%d,Δt=%f\n",N,delta_t);
+//     if(argc < 3){printf("Usage:./PDE_name dim ../Mesh/mesh01.msh\n"); exit(1);}//実行の仕方
+//     /*==================構造体のデータ読み込み==========================*/
+//     mesh_t mesh;
+//     //alloc(and scan)
+//     alloc_scan_mesh(&mesh,argv[1],argv[2]);//argv[1]=次元の数　argv[2]=meshファイルの名前
+//     int np=mesh.np;
+//     /*==============================================================*/
+
+//     //初期条件の代入
+//     double *u_old=dvector(1,np);
+//     for(int i=1;i<=np;i++){
+//         u_old[i]=0.0;
+//     }
+
+//     double **A=Al(weak_form,&mesh);//剛性行列(境界条件込み)
+//     double *RHS=out_force(pre_sol,&mesh,u_old);
+
+//     /*============解の更新===========*/
+//     double *u=CG_CRS(A,RHS,np);//解の計算
+//     // double *u=LU_Decomp(L,U,RHS,np);
+//     for(int i=1;i<=np;i++){
+//         u_old[i]=u[i];
+//         printf("%f\n",u[i]);    
+//     }
+//     /*=============================*/
+    
+//     free_dvector(u,1,np);
+//     free_dvector(RHS,1,np);
+//     free_dmatrix(A,1,np,1,np);
+//     free_dvector(u_old,1,np);
+
+//     mesh_free(&mesh);//free
+
+//     return 0;
+// }

@@ -8,6 +8,9 @@ double g(double x,double y){
 double g1(double x,double y){
     return 0.0;
 }
+double phi_ij(mesh_t *mesh,int Kl,int i,int j,double x,double y){
+    return 0.0;
+}
 
 #include<glsc3d_3.h>//glsc3Dを用いるときに使用
 

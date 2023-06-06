@@ -1,7 +1,7 @@
 #include "main_mesh.h"//メッシュ作成の関数
 
-#define D 0.01//(1.25*pow(10,-4))//Diffusion Coefficient
-#define N 80
+#define D 0.1//(1.25*pow(10,-4))//Diffusion Coefficient
+#define N 32
 #define Nt (5*pow(N,2)/2)//時間方向の分割数
 #define T_max M_PI
 #define delta_t (T_max/Nt) //time step;
@@ -153,6 +153,10 @@ double advect(mesh_t *mesh,int Kl,int i,int j){
 
     return ret;
 }
+//右辺のベクトル離散化
+double RHS_advect(double *u_p,int i,double x,double y){
+    return u_p[i]+delta_t*f(x,y);
+}
 /*========================================================================*/
 
 
@@ -167,13 +171,16 @@ double poisson(mesh_t *mesh,int Kl,int i,int j){
     double *C_i=coef_plate_grad(mesh,Kl,ver1);//φiの勾配
     double *C_j=coef_plate_grad(mesh,Kl,ver2);//φjの勾配
 
-
     double ret=D*inner_product(1,dim,C_i,C_j)*S_Kl;
 
     free_dvector(C_i,0,dim);
     free_dvector(C_j,0,dim);
 
     return ret;
+}
+
+double RHS_poisson(double *u_p,int i,double x,double y){
+    return f(x,y);
 }
 
 /*=========================拡散====================================*/
@@ -196,6 +203,10 @@ double heat(mesh_t *mesh,int Kl,int i,int j){
     free_dvector(C_j,0,dim);
 
     return ret;
+}
+//右辺のベクトル離散化
+double RHS_heat(double *u_p,int i,double x,double y){
+    return u_p[i]+delta_t*f(x,y);
 }
 
 
@@ -221,8 +232,4 @@ double wave(mesh_t *mesh,int Kl,int i,int j){
     return ret;
 }
 
-/*=========================右辺の離散化=================================*/
-//右辺のベクトル離散化
-double RHS_right(double *u_p,int i,double x,double y){
-    return u_p[i]+delta_t*f(x,y);
-}
+

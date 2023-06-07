@@ -15,6 +15,8 @@ void print_mesh_data(mesh_t mesh);//メッシュデータの出力
 void make_mesh_data_for_gnuplot(mesh_t mesh,double *u,char *str);//gnuplot用のデータの作成
 void alloc_scan_mesh(mesh_t *mesh,char *s1,char *s2);//メッシュデータの読み込み，データ保存
 void mesh_free(mesh_t *mesh);//free関数
+double **elel(mesh_t *mesh);//要素要素対応表
+int ele_inside(mesh_t *mesh,int Kl,double x,double y);//要素Kl内に(x,y)が入ってるかどうか
 double Volume(mesh_t *mesh);//全領域での積分値の計算
 void drawney(mesh_t *mesh);//ドロネーのアルゴリズム
 double Integer(int *alpfa);//数値積分その１
@@ -28,13 +30,13 @@ void make_result_data_for_GLSC(mesh_t *mesh,double *u,char *str);//GLSC用のデ
 void make_coef_matrix(mesh_t *mesh,double **A,double *b,int t);//係数行列の作成
 double area(mesh_t *mesh,int Kl);//Klの面積
 double err_Lp(mesh_t *mesh,double *u,double p,double t);//解析解との誤差
+double phi(mesh_t *mesh,int i,double x,double y,int Kl);//基底関数の値
 double f(double x,double y);//Nonlinear function
 double g(double x,double y);//Diriclet boundary condition's function
 double g1(double x,double y);//Neumman boundary condition's function
 double init(double x,double y);//initial condition
 double *u(double x,double y);//Already given vector
 double phi_ij(mesh_t *mesh,int Kl,int i,int j,double x,double y);//必要な数値積分用の関数
-
 double u_exa(double x,double y,double t);
 
 
@@ -46,7 +48,6 @@ double **Al(weak weak_form,mesh_t *mesh);
 
 typedef double (*out)(double *u_p,int i,double x,double y);//右辺の離散化における関数
 double *out_force(out RHS,mesh_t *mesh,double *u_old);
-
 
 void alloc_scan_mesh(mesh_t *mesh,char *s1,char *s2){
     FILE *fp;
@@ -187,6 +188,29 @@ double Volume(mesh_t *mesh){
     return area;
 }
 
+int ele_inside(mesh_t *mesh,int Kl,double x,double y){
+    int n=mesh->n;
+    int dim=mesh->dim;
+    double **npxy;
+    npxy = mesh->npxy;
+    int **elnp;
+    elnp=mesh->elnp;
+
+    int counter=0;//重心座標が正であるものの個数
+    for(int i=1;i<=n;i++){
+        int dim=mesh->dim;
+        //φiのKl番目上の平面
+        double *coef=coef_plate_grad(mesh,Kl,i);
+        double ret=coef[0]+coef[1]*x+coef[2]*y;
+        free_dvector(coef,0,dim);
+
+        if(ret>=0.0){
+            counter+=1;
+        }
+    }
+    return counter;
+}
+
 //接点が領域に入ってるかどうかの確認
 int count(mesh_t *mesh,double x,double y){
     // int np=mesh->np;
@@ -194,48 +218,59 @@ int count(mesh_t *mesh,double x,double y){
     // int nb=mesh->nb;
     // int dim=mesh->dim;
     int n=mesh->n;
-    // double **npxy;
+    double **npxy;
     // int **elnp; 
     // int **bound;
-    // npxy = mesh->npxy;
+    npxy = mesh->npxy;
     // elnp = mesh->elnp;
     // bound = mesh->bound;
 
     int Kl;
 
-    for(int K=1;K<=ne;K++){
-        double *X1=dvector(0,n-1);
-        double *X2=dvector(0,n-1);
-        for(int i=0;i<n;i++){
-            X1[i]=coord(mesh,K,1)[i]-x;
-            X2[i]=coord(mesh,K,2)[i]-y;
-        }
-
-        double Arg=0.0;
-        for(int i=0;i<n;i++){
-            double ip=X1[i]*X1[(i+1)%n]+X2[i]*X2[(i+1)%n];
-            double x1_l=X1[i]*X1[i]+X2[i]*X2[i];
-            double x2_l=X1[(i+1)%n]*X1[(i+1)%n]+X2[(i+1)%n]*X2[(i+1)%n];
-            if(x1_l!=0.0 && x2_l!=0.0){
-                Arg+=acos(ip/sqrt(x1_l*x2_l));
-                // printf("i=%d,%f\n",i,sqrt(x2_l));
-            }else{
-                Arg=0.0;
-            }
-        }
-        // printf("Arg=%f\n",Arg);
-    
-        free_dvector(X1,0,n-1);
-        free_dvector(X2,0,n-1);
-
-        if(Arg==0.0 || Arg==2*pi){
+    for(int K=1;K<=ne;K++){//K番目の要素
+        int check_inside=ele_inside(mesh,Kl,x,y);
+        if(check_inside==n){
             Kl=K;
-            // printf("Arg=%f,K=%d\n",Arg,Kl);
+            break;
         }
+
+        // double *X1=dvector(0,n-1);
+        // double *X2=dvector(0,n-1);
+        // for(int i=0;i<n;i++){
+        //     X1[i]=coord(mesh,K,1)[i]-x;
+        //     X2[i]=coord(mesh,K,2)[i]-y;
+        // }
+
+        // double Arg=0.0;
+        // for(int i=0;i<n;i++){
+        //     double ip=X1[i]*X1[(i+1)%n]+X2[i]*X2[(i+1)%n];
+        //     double x1_l=X1[i]*X1[i]+X2[i]*X2[i];
+        //     double x2_l=X1[(i+1)%n]*X1[(i+1)%n]+X2[(i+1)%n]*X2[(i+1)%n];
+        //     if(x1_l!=0.0 && x2_l!=0.0){
+        //         Arg+=acos(ip/sqrt(x1_l*x2_l));
+        //         // printf("i=%d,%f\n",i,sqrt(x2_l));
+        //     }else{
+        //         Arg=0.0;
+        //     }
+        // }
+        // // printf("Arg=%f\n",Arg);
+    
+        // free_dvector(X1,0,n-1);
+        // free_dvector(X2,0,n-1);
+
+        // if(Arg==0.0 || Arg==2*pi){
+        //     Kl=K;
+        //     // printf("Arg=%f,K=%d\n",Arg,Kl);
+        // }
+
     }
     return Kl;
 }
 
+
+double **elel(mesh_t *mesh){
+
+}
 
 // void drawney(mesh_t *mesh){
 //     int np=mesh->np,ne=mesh->ne,nb=mesh->nb,dim=mesh->dim,n=mesh->n;
@@ -295,7 +330,7 @@ int count(mesh_t *mesh,double x,double y){
 //     /*==================================================*/
 // }
 
-double *coord(mesh_t *mesh,int K,int x){
+double *coord(mesh_t *mesh,int K,int x){//要素Kのx座標
     /*==================構造体のデータ読み込み==========================*/
     int dim=mesh->dim;
     int n=mesh->n;

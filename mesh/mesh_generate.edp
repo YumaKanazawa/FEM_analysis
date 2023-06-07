@@ -2,7 +2,7 @@ load "medit"
 //メッシュ作成用のプログラム
 int Diriclet=1,Neumann=2;
 
-int sepD=400;
+int sepD=1000;
 int sepN=sepD;
 real sep;
 

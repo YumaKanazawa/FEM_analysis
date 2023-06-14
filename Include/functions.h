@@ -97,7 +97,7 @@ double **dmatrix(int nr1,int nr2,int nl1,int nl2){
   for( i=nr1; i<=nr2; i++) a[i] = a[i]-nl1; 
 
   for(i=nr1;i<=nr2;i++){
-    for(int j=nl2;j<=nl2;j++){
+    for(int j=nl1;j<=nl2;j++){
       a[i][j]=0.0;
     }    
   }        
@@ -105,7 +105,7 @@ double **dmatrix(int nr1,int nr2,int nl1,int nl2){
 }
 
 void free_dmatrix(double **a,int nr1,int nr2,int nl1,int nl2){
-  if(nl2!=nl1 && nr2!=nr1){
+  if(nl2>nl1 && nr2>nr1){
     for (int i = nr1 ; i <= nr2 ; i++) free((void *)(a[i]+nl1));
     free((void *)(a+nr1));
   }else{
@@ -129,8 +129,8 @@ int **imatrix(int nr1,int nr2,int nl1,int nl2){
   for( i=nr1; i<=nr2; i++) a[i] = a[i]-nl1;
 
  for(i=nr1;i<=nr2;i++){
-    for(int j=nl2;j<=nl2;j++){
-      a[i][j]=0;
+    for(int j=nl1;j<=nl2;j++){
+      a[i][j]=-1;
     }    
   }
 
@@ -138,7 +138,7 @@ int **imatrix(int nr1,int nr2,int nl1,int nl2){
 }
 
 void free_imatrix(int **a, int nr1,int nr2,int nl1,int nl2){
-  if(nl2!=nl1 && nr2!=nr1){
+  if(nl2>nl1 && nr2>nr1){
     for (int i = nr1 ; i <= nr2 ; i++) free((void *)(a[i]+nl1));
     free((void *)(a+nr1));
   }else{
@@ -246,7 +246,7 @@ void pivod(double **A,double *b,int M){
 }
 
 void LU(double **Acoef,int M,double **L_r,double **U_r){//要素が行列のベクトルを返す関数
-  printf("LU ");
+  // printf("LU ");
   int sta=1;
   int end=sta+M;
   double **L=dmatrix(sta,end-1,sta,end-1);//alloc_matrix(M,M);
@@ -287,14 +287,14 @@ void LU(double **Acoef,int M,double **L_r,double **U_r){//要素が行列のベ�
     }
   }
   
-  printf("L\n");
+  // printf("L\n");
   for(int i=sta;i<end;i++){
     for(int j=sta;j<end;j++){
       L_r[i][j]=L[i][j];
     }
   }
 
-  printf("U\n");
+  // printf("U\n");
   for(int i=sta;i<end;i++){
     for(int j=sta;j<end;j++){
       U_r[i][j]=U[i][j];
@@ -307,7 +307,7 @@ void LU(double **Acoef,int M,double **L_r,double **U_r){//要素が行列のベ�
 
 //LU分解
 double *LU_Decomp(double **L,double **U,double *B,int M){
-  printf("LU\n");
+  // printf("LU\n");
   int sta=1;
   int end=sta+M;
   double *W_out=dvector(sta,end-1);//alloc_vector(M);
@@ -499,7 +499,7 @@ void CRS(CRS_t *CRS,double **A,int M){
 
   //iaの作成
   int locate_ja=sta;
-  int loc_pi=sta;
+  // int loc_pi=sta;
   for(int col=sta;col<sta+M;col++){
     *p_i=locate_ja;
     p_i++;
@@ -518,6 +518,7 @@ void CRS(CRS_t *CRS,double **A,int M){
 void free_CRS(CRS_t *CRS,int M,int N){
   int sta=1;
   int A_l=CRS->A_l;
+  N=N+1;
   // printf("\nCRS_free: start ....\n"); fflush(stdout);
   free_dvector(CRS->A,sta,A_l);
   free_ivector(CRS->ia,sta,M);
@@ -573,7 +574,7 @@ double *CG_CRS(double **A,double *b,int M){//M次元正定値対称行列
 
   //k番目について
   int count=0;
-  while(count<pow(10,10)){//反復回数
+  while(count<pow(10,5)){//反復回数
     double *q=matrix_vector_product_CRS(&CRS_A,p,M);//q=Ap
     double alpha=gamma/inner_product(sta,end,p,q);//γ/(p,q)
 

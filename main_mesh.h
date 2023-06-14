@@ -1,26 +1,26 @@
 #include "Include/functions.h"
 
-
 #define SUPG 0.0//SUPG法の定数
 
 typedef struct mesh{
     int dim, np, ne, nb;//データの次元，節点数，要素数，境界数
     double **npxy;//節点座標対応表
     int **elnp, **bound;//要素節点対応表
+    int **elel;//要素要素対応表
     int n;//n角形分割
-    double Volume;//全領域での積分値
 }mesh_t;
 
 void print_mesh_data(mesh_t mesh);//メッシュデータの出力
 void make_mesh_data_for_gnuplot(mesh_t mesh,double *u,char *str);//gnuplot用のデータの作成
 void alloc_scan_mesh(mesh_t *mesh,char *s1,char *s2);//メッシュデータの読み込み，データ保存
 void mesh_free(mesh_t *mesh);//free関数
-double **elel(mesh_t *mesh);//要素要素対応表
+int comp(int *a,int *b,int m,int n);//一致している個数
+int comp_place(int *a,int *b,int m,int n);//一致していない個数
 int ele_inside(mesh_t *mesh,int Kl,double x,double y);//要素Kl内に(x,y)が入ってるかどうか
-double Volume(mesh_t *mesh);//全領域での積分値の計算
+double S(double **Pxy);//1要素の面積
 void drawney(mesh_t *mesh);//ドロネーのアルゴリズム
-double Integer(int *alpfa);//数値積分その１
 double *coord(mesh_t *mesh,int K,int x);//Kを構成するxベクトル
+double *g_Kl(mesh_t *mesh,int Kl);//Klの重心の座標
 double **NumInt_deg_two(mesh_t *mesh,int K);//積分点の計算
 double **NumInt_deg_five(mesh_t *mesh,int K);//積分点の計算
 double *coef_plate_grad(mesh_t *mesh ,int K,int Pi);//要素KにおけるPiで１となる平面の勾配
@@ -56,6 +56,7 @@ void alloc_scan_mesh(mesh_t *mesh,char *s1,char *s2){
 
     dim = atoi(s1); mesh->dim = dim;//次元数を数字に変更してdimに格納
     mesh->n=3;//n角形で分割するとき
+    int n=mesh->n;
 
     
     if((fp=fopen(s2,"r"))==NULL){printf("Can’t open file: %s.\n",s2); exit(1);}//ファイルの読み込み
@@ -66,12 +67,11 @@ void alloc_scan_mesh(mesh_t *mesh,char *s1,char *s2){
     mesh->ne = ne;
     mesh->nb = nb;//各種パラメータを変数に格納
 
-    
     /*メモリの動的な確保*/
     mesh->npxy =dmatrix(1,np,1,dim); printf("npxy,"); fflush(stdout);
     mesh->elnp =imatrix(1,ne,1,dim+1); printf("elnp,"); fflush(stdout);
     mesh->bound=imatrix(1,nb,1,dim); printf("bound,"); fflush(stdout);
-
+    mesh->elel=imatrix(1,ne,1,dim+1);printf("elel,");fflush(stdout);
 
     /*行列の値格納*/
     for(i=1;i<=np;i++){
@@ -91,6 +91,28 @@ void alloc_scan_mesh(mesh_t *mesh,char *s1,char *s2){
             fscanf(fp,"%d",&(mesh->bound[k][i]));
         }
     }
+
+
+    for(int Kl=1;Kl<=ne;Kl++){//Kl番目の要素を考える
+        int s=1,t=n;//比較用の位置
+        int *Kl_v=ivector(s,t);//各要素の節点番号
+        for(int i=s;i<=t;i++)Kl_v[i]=(mesh->elnp[Kl][(i-s)%n+1]);
+
+        for(int Km=1;Km<=ne;Km++){
+            int *Km_v=ivector(s,t);//各要素の節点番号
+            for(int i=s;i<=t;i++)Km_v[i]=(mesh->elnp[Km][(i-s)%n+1]);
+
+            int check=comp(Km_v,Kl_v,s,t);
+            if(check==n-1){
+                int elel_row=comp_place(Kl_v,Km_v,s,t);//二箇所が一致する時に要素同士は隣あう．
+                mesh->elel[Kl][elel_row]=Km;//位置はelel_rowではなく，要素の反対側に来るように考えなくてはならない．
+            }
+
+            free_ivector(Km_v,s,t);
+        }
+        free_ivector(Kl_v,s,t);
+    }
+    
     fclose(fp);
     printf(".... end\n"); fflush(stdout);
     return;
@@ -102,6 +124,7 @@ void mesh_free(mesh_t *mesh){
     free_dmatrix(mesh->npxy,1,np,1,dim); printf("npxy,"); fflush(stdout);
     free_imatrix(mesh->elnp,1,ne,1,dim+1); printf("elnp,"); fflush(stdout);
     free_imatrix(mesh->bound,1,nb,1,dim+1); printf("bound,"); fflush(stdout);
+    free_imatrix(mesh->elel,1,ne,1,dim+1);
     printf(".... end\n"); fflush(stdout);
     return;
 }
@@ -161,34 +184,7 @@ void make_mesh_data_for_gnuplot(mesh_t mesh,double *u,char *str){
     return;
 }
 
-//三角形の面積計算
-double Volume(mesh_t *mesh){
-    printf("Volume");
-    int n=mesh->n;//要素の分割形状
-    int dim=mesh->dim;//問題を考える次元
-
-    // int k=0;
-    int **elnp=mesh->elnp;
-    double **npxy=mesh->npxy;
-
-    double **A=dmatrix(1,dim+1,1,n);//行列のメモリ確保．要素番号の格納
-
-    double area=0.0;
-    for(int i=0;i<n;i++){
-        A[0][i]=1.0;
-        for(int j=1;j<dim+1;j++){
-            int ver_n=elnp[i][j-1];//j番目の接点番号
-            A[i][j]=npxy[ver_n][j-1];
-            printf("%f\n",A[i][j]);
-        }
-        printf("\n");
-        area+=1.0;
-    }
-    free_dmatrix(A,1,dim+1,1,n);
-    return area;
-}
-
-int ele_inside(mesh_t *mesh,int Kl,double x,double y){
+int ele_inside(mesh_t *mesh,int Kl,double x,double y){//入ってるかどうか．入っていなければ次に探索する方向を返す
     int n=mesh->n;
     int dim=mesh->dim;
     double **npxy;
@@ -196,139 +192,160 @@ int ele_inside(mesh_t *mesh,int Kl,double x,double y){
     int **elnp;
     elnp=mesh->elnp;
 
-    int counter=0;//重心座標が正であるものの個数
+    // Kl番目節点を通る行列の作成.Klのみに依存
+    double **Pxy=dmatrix(1,n,1,dim);//要素を構成する節点座標
     for(int i=1;i<=n;i++){
-        int dim=mesh->dim;
-        //φiのKl番目上の平面
-        double *coef=coef_plate_grad(mesh,Kl,i);
-        double ret=coef[0]+coef[1]*x+coef[2]*y;
-        free_dvector(coef,0,dim);
-
-        if(ret>=0.0){
-            counter+=1;
+        int ver=elnp[Kl][i];//ele_numberを構成するi番目の節点番号
+        for(int j=1;j<=dim;j++){
+            Pxy[i][j]=npxy[ver][j];//要素を構成する節点座標
         }
     }
-    return counter;
+
+    //３点から面積計算
+    double Sl=2*S(Pxy);//行列式
+    // printf("K=%d:",Kl);
+    double *C=dvector(0,dim);//return用の配列
+    int counter=0,next_position=0;
+    for(int i=1;i<=n;i++){
+        int x1=1,y1=2;
+
+        int n1=i%3+1,n2=(i+1)%3+1;
+        //クラメルの公式による連立方程式の解
+        double xi=Pxy[n1][x1],xi1=Pxy[n2][x1];
+        double yi=Pxy[n1][y1],yi1=Pxy[n2][y1];
+        C[0]=(yi1*xi-yi*xi1)/Sl;
+        C[1]=(yi-yi1)/Sl;
+        C[2]=(xi1-xi)/Sl;
+
+        double ret=C[0]+C[1]*x+C[2]*y;
+        if(ret>=0.0){
+            counter+=1;
+        }else{
+            next_position=i;
+        }
+        // printf("%f,",ret);
+
+    }
+    
+    free_dvector(C,0,dim);
+    free_dmatrix(Pxy,1,n,1,dim);
+
+    
+    int Return_value;
+    if(counter==n){//全重心座標が>0ならnを返す
+        Return_value=-10;
+    }else{//そうでなければ次の値を
+        Return_value=next_position;
+    }
+    // printf(":%d\n",Return_value);
+
+    return Return_value;
 }
 
 //接点が領域に入ってるかどうかの確認
 int count(mesh_t *mesh,double x,double y){
-    // int np=mesh->np;
-    int ne=mesh->ne;
-    // int nb=mesh->nb;
-    // int dim=mesh->dim;
-    int n=mesh->n;
-    double **npxy;
-    // int **elnp; 
-    // int **bound;
-    npxy = mesh->npxy;
-    // elnp = mesh->elnp;
-    // bound = mesh->bound;
-
-    int Kl;
-
+    int ne=mesh->ne;   
+    int Kl=-1;
     for(int K=1;K<=ne;K++){//K番目の要素
-        int check_inside=ele_inside(mesh,Kl,x,y);
-        if(check_inside==n){
+        int check_inside=ele_inside(mesh,K,x,y);
+        if(check_inside==-10){//nに等しい時Kl内部に接点がある
             Kl=K;
-            break;
+            // break;
         }
-
-        // double *X1=dvector(0,n-1);
-        // double *X2=dvector(0,n-1);
-        // for(int i=0;i<n;i++){
-        //     X1[i]=coord(mesh,K,1)[i]-x;
-        //     X2[i]=coord(mesh,K,2)[i]-y;
-        // }
-
-        // double Arg=0.0;
-        // for(int i=0;i<n;i++){
-        //     double ip=X1[i]*X1[(i+1)%n]+X2[i]*X2[(i+1)%n];
-        //     double x1_l=X1[i]*X1[i]+X2[i]*X2[i];
-        //     double x2_l=X1[(i+1)%n]*X1[(i+1)%n]+X2[(i+1)%n]*X2[(i+1)%n];
-        //     if(x1_l!=0.0 && x2_l!=0.0){
-        //         Arg+=acos(ip/sqrt(x1_l*x2_l));
-        //         // printf("i=%d,%f\n",i,sqrt(x2_l));
-        //     }else{
-        //         Arg=0.0;
-        //     }
-        // }
-        // // printf("Arg=%f\n",Arg);
-    
-        // free_dvector(X1,0,n-1);
-        // free_dvector(X2,0,n-1);
-
-        // if(Arg==0.0 || Arg==2*pi){
-        //     Kl=K;
-        //     // printf("Arg=%f,K=%d\n",Arg,Kl);
-        // }
-
     }
     return Kl;
 }
 
-
-double **elel(mesh_t *mesh){
-
+int comp(int *a,int *b,int m,int n){//配列が一致している個数．(同じ要素がない配列のみ)
+    int ret=0;
+    for(int i=m;i<=n;i++){
+        for(int j=m;j<=n;j++){
+            if(a[i]==b[j]){
+                ret+=1;
+            }
+        }
+        
+    }
+    return ret;
 }
 
-// void drawney(mesh_t *mesh){
-//     int np=mesh->np,ne=mesh->ne,nb=mesh->nb,dim=mesh->dim,n=mesh->n;
-//     double **npxy;
-//     int **elnp, **bound;
-//     npxy = mesh->npxy;
-//     elnp = mesh->elnp;
-//     bound = mesh->bound;
+int comp_place(int *a,int *b,int m,int n){//配列が一致していない個数．(同じ要素がない配列のみ)
+    // int count=0;
+    int ret=-1;
+    int non_same;
+    for(int i=m;i<=n;i++){
+        non_same=0;
+        for(int j=m;j<=n;j++){//a[i]が全ての要素と一致しない場合non_same=n-m+1となる．
+            if(a[i]!=b[j]){
+                non_same+=1;
+            }
+        }
 
-//     /*============1st========super Triangle============*/
-//     //最大最小値の探索
-//     double max=npxy[1][1];
-//     double min=npxy[1][1];
-//     for(int i=1;i<=np;i++){
-//         for(int j=0;j<dim;j++){
-//             if(max<=npxy[i][j]){
-//                 max=npxy[i][j];
-//             }
-//             if(min>=npxy[i][j]){
-//                 min=npxy[i][j];
-//             }
-//         }   
-//     }
-//     //上記４点によってなされる正方形に外接する円の情報
-//     double L=0.5*sqrt(2)*fabs(max-min);
-//     //三角形の内心=正方形の中心(x0,x0)
-//     double x0=min+0.5*fabs(max-min);
-//     double y0=x0;
-//     //SuperTriangleを作る座標
-//     double tx=x0,ty=y0+2.0*L;
-//     double tx1=x0-sqrt(3)*L;
-//     double ty1=y0-L;
-//     double tx2=x0+sqrt(3)*L;
-//     double ty2=y0-L;
+        if(non_same==(n-m+1)){//全ての要素と一致しないものの探索．全てと一致する場合は-1を返す
+            ret=i;
+        }
 
-//     Super Triangleの座標行列
-//     double **Coord=dmatrix(1,n,1,dim);
-//     Coord[1][1]=tx;Coord[1][2]=ty;
-//     Coord[2][1]=tx1;Coord[2][2]=ty1;
-//     Coord[3][1]=tx2;Coord[3][2]=ty2;
+    }
+
+    return ret;
+}
+
+void drawney(mesh_t *mesh){
+    printf("%d\n",mesh->n);
+    // int np=mesh->np,ne=mesh->ne,nb=mesh->nb,dim=mesh->dim,n=mesh->n;
+    // double **npxy;
+    // int **elnp, **bound;
+    // npxy = mesh->npxy;
+    // elnp = mesh->elnp;
+    // bound = mesh->bound;
+
+    // /*============1st========super Triangle============*/
+    // //最大最小値の探索
+    // double max=npxy[1][1];
+    // double min=npxy[1][1];
+    // for(int i=1;i<=np;i++){
+    //     for(int j=0;j<dim;j++){
+    //         if(max<=npxy[i][j]){
+    //             max=npxy[i][j];
+    //         }
+    //         if(min>=npxy[i][j]){
+    //             min=npxy[i][j];
+    //         }
+    //     }   
+    // }
+    // //上記４点によってなされる正方形に外接する円の情報
+    // double L=0.5*sqrt(2)*fabs(max-min);
+    // //三角形の内心=正方形の中心(x0,x0)
+    // double x0=min+0.5*fabs(max-min);
+    // double y0=x0;
+    // //SuperTriangleを作る座標
+    // double tx=x0,ty=y0+2.0*L;
+    // double tx1=x0-sqrt(3)*L;
+    // double ty1=y0-L;
+    // double tx2=x0+sqrt(3)*L;
+    // double ty2=y0-L;
+
+    // // Super Triangleの座標行列
+    // double **Coord=dmatrix(1,n,1,dim);
+    // Coord[1][1]=tx;Coord[1][2]=ty;
+    // Coord[2][1]=tx1;Coord[2][2]=ty1;
+    // Coord[3][1]=tx2;Coord[3][2]=ty2;
     
-//     /*=================================================*/
+    // /*=================================================*/
 
-//     /*==============2nd==============線を引く============*/
+    // /*==============2nd==============線を引く============*/
 
-//     int data_number=1;
-//     double *Xi=dvector(1,dim);
-//     for(int i=1;i<=dim;i++)Xi[i]=npxy[data_number][i];
+    // int data_number=1;
+    // double *Xi=dvector(1,dim);
+    // for(int i=1;i<=dim;i++)Xi[i]=npxy[data_number][i];
     
-//     int C=count(Coord,Xi);
+    // // int C=count(Coord,Xi);
 
-//     free_dmatrix(Coord,1,n,1,dim);
-//     free_dvector(Xi,dim);
-
-//     printf("%d\n",C);
+    // free_dmatrix(Coord,1,n,1,dim);
+    // free_dvector(Xi,1,dim);
     
-//     /*==================================================*/
-// }
+    // /*==================================================*/
+}
 
 double *coord(mesh_t *mesh,int K,int x){//要素Kのx座標
     /*==================構造体のデータ読み込み==========================*/
@@ -345,7 +362,7 @@ double *coord(mesh_t *mesh,int K,int x){//要素Kのx座標
     /*==============================================================*/
     double *ret=dvector(1,n);
 
-    for(int i=1;i<=dim+1;i++){
+    for(int i=1;i<=n;i++){
         int Pi=elnp[K][i];
         ret[i]=npxy[Pi][x];//Piを構成するx座標
     }
@@ -647,6 +664,24 @@ double area(mesh_t *mesh,int l){
     return S_Kl;
 }
 
+double *g_Kl(mesh_t *mesh,int Kl){//Kl番目の重心の座標
+    int **elnp;
+    elnp=mesh->elnp;
+    double **npxy;
+    npxy=mesh->npxy;
+    int n=mesh->n;
+    int dim=mesh->dim;
+
+    double *G_coord=dvector(1,dim);
+    for(int i=1;i<=n;i++){
+        int Kl_pi=elnp[Kl][i];
+        for(int coord=1;coord<=dim;coord++){
+            G_coord[coord]+=(npxy[Kl_pi][coord])/n;//[(x1+y1+z1)/3,(x2+y2+z2)/3]
+        }
+    }
+    return G_coord;
+}
+
 void Diriclet(mesh_t *mesh,double **A,double *b){
     printf("Dirichlet(ディリクレ境界条件の反映)\n");
     /*==================構造体のデータ読み込み==========================*/
@@ -788,21 +823,6 @@ double phi(mesh_t *mesh,int i,double x,double y,int Kl){
     return ret;
 }
 
-void matrix_vector_print(mesh_t mesh,double **A,double *RHS){
-    for(int i=1;i<=mesh.np;i++){
-        for(int j=1;j<=mesh.np;j++){
-            if(A[i][j]>0){
-                printf("+%0.2f,",A[i][j]);
-            }else if(A[i][j]==0){
-                printf("% 0.2f,",A[i][j]);
-            }else{
-                printf("%0.2f,",A[i][j]);
-            }
-        }
-        printf(" %0.2f\n",RHS[i]);
-    }
-}
-
 void make_result_data_for_GLSC(mesh_t *mesh,double *u,char *str){
     // int np=mesh.np;
     int dim=mesh->dim;
@@ -842,96 +862,11 @@ void make_result_data_for_GLSC(mesh_t *mesh,double *u,char *str){
     return;
 }
 
-void search_ele_count(mesh_t *mesh,double *u){
-    // int np=mesh.np;
-    // int dim=mesh->dim;
-    // int n=mesh->n;
-    // int nb=mesh.nb;
-    int ne=mesh->ne;
-    // double **npxy;
-    // int **bound;
-    // int **elnp; 
-
-    //ノイマン条件の場合，1番目の節点がその境界上にあれば発散する.その対処
-    for(int ver_num=1;ver_num<=ne;ver_num++){
-        if(u[ver_num]>=1.0){
-            u[ver_num]=0.0;
-            // double u_1=0.0;//u[1]の初期化
-            // int count_ele=0;
-            // for(int i=1;i<=mesh.ne;i++){
-            //     for(int v=1;v<=mesh.n;v++){
-            //         int l1=mesh.elnp[i][v];
-            //         if(l1==1){//1番目の節点番号を含む要素がiに入る
-            //             count_ele++;//1を含む要素の個数
-            //             int l2=i%mesh.n+1,l3=(i+1)%mesh.n+1;//l1以外の要素確認
-            //             int e_l2=mesh.elnp[i][l2],e_l3=mesh.elnp[i][l3];
-            //             u[l1]=0.0,u[e_l2]=0.0,u[e_l3]=0.0;
-            //             // u_1+=(u[e_l2]+u[e_l3]);//e_l2,e_l3番目の関数の値との平均を取る
-            //         }
-            //     }
-            // }
-            // u[1]=0.0;//u_1/(mesh.n*count_ele);//節点数=n×要素数
-        }
-    }
-}
-
-void make_coef_matrix(mesh_t *mesh,double **A,double *b,int t){
-    int np=mesh->np;
-    // int dim=mesh->dim;
-    // int n=mesh->n;
-    // int nb=mesh->nb;
-    // int ne=mesh->ne;
-    // double **npxy=mesh->npxy;
-    // int **bound=mesh->bound;
-    // int **elnp=mesh->elnp; 
-
-    char str[200]="file/heat_matrix.csv";
-    printf("matrix file name?");
-    // scanf("%s",str);
-    printf("Enterd\n");
-
-    FILE *write_matrix;
-    write_matrix=fopen(str,"w");
-
-    if(write_matrix==NULL){
-        printf("Can't open Matrix file!");
-        exit(1);
-    }
-
-    for(int i=1;i<=np;i++){
-        for(int j=1;j<=np;j++){
-            fprintf(write_matrix,"%lf",A[i][j]);
-            if(j!=np){
-                fprintf(write_matrix,",");
-            }
-        }
-        fprintf(write_matrix,"\n");
-    }
-    fclose(write_matrix);
-
-    char str_v[200];
-    printf("vector file name?");
-    sprintf(str_v,"file/init_matrix%d.csv",t);
-    printf("Enterd\n");
-
-    FILE *write_vector;
-    write_vector=fopen(str_v,"w");
-    if(write_vector==NULL){
-        printf("Can't open Vector file!");
-        exit(1);
-    }
-
-    for(int j=1;j<=np;j++){
-        fprintf(write_matrix,"%lf\n",b[j]);
-    }
-    fclose(write_vector);
-}
-
 //要素剛性行列の作成
 double **Al(weak weak_form,mesh_t *mesh){
     printf("Al(要素剛性行列)\n");
     /*==================構造体のデータ読み込み==========================*/
-    int dim=mesh->dim;
+    // int dim=mesh->dim;
     int n=mesh->n;
     int np=mesh->np;
     int ne=mesh->ne;
@@ -981,6 +916,7 @@ double **Al(weak weak_form,mesh_t *mesh){
     return A;
 }
 
+//右辺の行列
 double *out_force(out RHS,mesh_t *mesh,double *u_old){
     pfunc func_SUPG=&phi_ij;
 
@@ -1116,4 +1052,36 @@ double err_Lp(mesh_t *mesh,double *u,double p,double t){//時刻tにおける解
         ret=pow(Lp/(mesh->np),1/p);
     }
     return ret;  
+}
+
+//流速に依存した上流点の探索
+int search_past_point(mesh_t *mesh,double x_n,double y_n,double *u,double dt){
+    // int ne=mesh->ne;
+    int **elel=mesh->elel;
+    // int n=mesh->n;
+    // int dim=mesh->dim;
+
+    int inside_Kl=count(mesh,x_n,y_n);//x_n,y_nを含む要素番号l0
+    double x_p=x_n-dt*u[1],y_p=y_n-dt*u[2];//一個前の時刻の座標x-u*x,１時刻前の方に行くにはもうちょい工夫が必要
+
+    int past_kl;//=count(mesh,x_p,y_p);
+    //xp,ypの値が負になる方向の要素に探索する．
+    int check_Kl_pi=ele_inside(mesh,inside_Kl,x_p,y_p);//この値に応じて次に探索する方向が決まる
+    for(;;){
+        if(check_Kl_pi==-10){//Klに入ってるか探索
+            past_kl=inside_Kl;//inside_Kl要素にx_p,y_pがある
+            // printf("Coordinate is inside %d\n",past_kl);
+            break;
+        }else{
+            // printf("Now_ele=%d\n",inside_Kl);
+            // printf("Next direction=%d\n",check_Kl_pi);
+            // printf("%d,%d,%d\n",elel[inside_Kl][1],elel[inside_Kl][2],elel[inside_Kl][3]);
+
+            inside_Kl=elel[inside_Kl][check_Kl_pi];//次に考えなくてはならない要素番号
+            // printf("Choose El=%d\n\n",inside_Kl);
+
+            check_Kl_pi=ele_inside(mesh,inside_Kl,x_p,y_p);
+        }
+    }
+    return past_kl;
 }

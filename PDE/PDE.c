@@ -19,7 +19,7 @@ double u_exa(double x,double y,double t){
 
 //nonlinear of advection diffusion equation
 double f(double x,double y){
-    return 1.0;
+    return 1.0+0.0*(x+y);
 }
 
 //initial condition
@@ -29,12 +29,12 @@ double init(double x,double y){
 
 //ディリクレ境界条件
 double g(double x,double y){
-    return 0.0;
+    return 0.0*(x+y);
 }
 
 //ノイマン境界条件
 double g1(double x,double y){
-    return 0.0;
+    return 0.0*(x+y);
 }
 
 //誤差のファイル書き出し
@@ -101,7 +101,6 @@ int main(int argc,char *argv[]){
         sprintf(str,"figure/mesh%d.dat",T);
         // make_mesh_data_for_gnuplot(mesh,u_old,str);//gnuplot用のファイル作成
         make_result_data_for_GLSC(&mesh,u_old,str);//GLSC用のデータ出力
-
         printf("t=%d,|u|=%f\n",T,vector_norm1(u_old,1,np,1.0));
         /*====================================*/
 
@@ -148,31 +147,48 @@ int main(int argc,char *argv[]){
 //     mesh_t mesh;
 //     //alloc(and scan)
 //     alloc_scan_mesh(&mesh,argv[1],argv[2]);//argv[1]=次元の数　argv[2]=meshファイルの名前
-//     int np=mesh.np;
+//     int np=mesh.np,n=mesh.n;
 //     /*==============================================================*/
 
-//     //初期条件の代入
-//     double *u_old=dvector(1,np);
-//     for(int i=1;i<=np;i++){
-//         u_old[i]=0.0;
-//     }
+//     // for(int i=1;i<=mesh.ne;i++){
+//     //     printf("K=%d:",i);
+//     //     for(int j=1;j<=mesh.n;j++){
+//     //         printf("%d,",mesh.elel[i][j]);
+//     //     }
+//     //     printf("\n\n");
+//     // }
 
-//     double **A=Al(weak_form,&mesh);//剛性行列(境界条件込み)
-//     double *RHS=out_force(pre_sol,&mesh,u_old);
 
-//     /*============解の更新===========*/
-//     double *u=CG_CRS(A,RHS,np);//解の計算
-//     // double *u=LU_Decomp(L,U,RHS,np);
-//     for(int i=1;i<=np;i++){
-//         u_old[i]=u[i];
-//         printf("%f\n",u[i]);    
-//     }
-//     /*=============================*/
+//     double *u=dvector(1,mesh.dim);
+//     u[1]=1.0,u[2]=0.0;
+//     int c=search_past_point(&mesh,0.0,0.0,u,delta_t);
+//     printf("past point=%d\n",c);
+
     
-//     free_dvector(u,1,np);
-//     free_dvector(RHS,1,np);
-//     free_dmatrix(A,1,np,1,np);
-//     free_dvector(u_old,1,np);
+//     free_dvector(u,1,mesh.dim);
+
+//     // //初期条件の代入
+//     // double *u_old=dvector(1,np);
+//     // for(int i=1;i<=np;i++){
+//     //     u_old[i]=0.0;
+//     // }
+
+//     // double **A=Al(weak_form,&mesh);//剛性行列(境界条件込み)
+//     // double *RHS=out_force(pre_sol,&mesh,u_old);
+
+//     // /*============解の更新===========*/
+//     // double *u=CG_CRS(A,RHS,np);//解の計算
+//     // // double *u=LU_Decomp(L,U,RHS,np);
+//     // for(int i=1;i<=np;i++){
+//     //     u_old[i]=u[i];
+//     //     printf("%f\n",u[i]);    
+//     // }
+//     // /*=============================*/
+    
+//     // free_dvector(u,1,np);
+//     // free_dvector(RHS,1,np);
+//     // free_dmatrix(A,1,np,1,np);
+//     // free_dvector(u_old,1,np);
 
 //     mesh_free(&mesh);//free
 

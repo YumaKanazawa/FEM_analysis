@@ -6,7 +6,6 @@
 #define T_max M_PI
 #define delta_t (T_max/Nt) //time step;
 
-
 /*=========================移流拡散=================================*/
 /*ここは手動で入力する*/
 double *u(double x,double y){
@@ -117,8 +116,8 @@ double advect(mesh_t *mesh,int Kl,int i,int j){
 
     int dim=mesh->dim;
     int **elnp= mesh->elnp;
-    double **npxy=mesh->npxy;
-    int np=mesh->np;
+    // double **npxy=mesh->npxy;
+    // int np=mesh->np;
 
     double S_Kl=area(mesh,Kl);//Kl番目の面積
 
@@ -153,6 +152,7 @@ double advect(mesh_t *mesh,int Kl,int i,int j){
 
     return ret;
 }
+
 //右辺のベクトル離散化
 double RHS_advect(double *u_p,int i,double x,double y){
     return u_p[i]+delta_t*f(x,y);
@@ -180,6 +180,9 @@ double poisson(mesh_t *mesh,int Kl,int i,int j){
 }
 
 double RHS_poisson(double *u_p,int i,double x,double y){
+    /*注意分消すためだけの動作*/
+    for(int j=i;j<=1;j++)u_p[i]=0.0;
+
     return f(x,y);
 }
 

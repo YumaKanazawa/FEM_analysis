@@ -1,6 +1,6 @@
 #include "Include/functions.h"
 
-#define SUPG 0.0//SUPG法の定数
+#define SUPG 0.00//SUPG法の定数
 
 typedef struct mesh{
     int dim, np, ne, nb;//データの次元，節点数，要素数，境界数
@@ -19,15 +19,12 @@ int comp_place(int *a,int *b,int m,int n);//一致していない個数
 int ele_inside(mesh_t *mesh,int Kl,double x,double y);//要素Kl内に(x,y)が入ってるかどうか
 double S(double **Pxy);//1要素の面積
 void drawney(mesh_t *mesh);//ドロネーのアルゴリズム
-double *coord(mesh_t *mesh,int K,int x);//Kを構成するxベクトル
-double *g_Kl(mesh_t *mesh,int Kl);//Klの重心の座標
-double **NumInt_deg_two(mesh_t *mesh,int K);//積分点の計算
 double **NumInt_deg_five(mesh_t *mesh,int K);//積分点の計算
+double **Centroid_coord(mesh_t *mesh);//積分点(重心座標系)
+double *Pi(mesh_t *mesh,int Kl,int K_n);
 double *coef_plate_grad(mesh_t *mesh ,int K,int Pi);//要素KにおけるPiで１となる平面の勾配
 double L(mesh_t *mesh,int i,int j);//２点間の距離
-double **permu(double *a,double b,int N);//順列
 void make_result_data_for_GLSC(mesh_t *mesh,double *u,char *str);//GLSC用のデータ
-void make_coef_matrix(mesh_t *mesh,double **A,double *b,int t);//係数行列の作成
 double area(mesh_t *mesh,int Kl);//Klの面積
 double err_Lp(mesh_t *mesh,double *u,double p,double t);//解析解との誤差
 double phi(mesh_t *mesh,int i,double x,double y,int Kl);//基底関数の値
@@ -347,57 +344,6 @@ void drawney(mesh_t *mesh){
     // /*==================================================*/
 }
 
-double *coord(mesh_t *mesh,int K,int x){//要素Kのx座標
-    /*==================構造体のデータ読み込み==========================*/
-    int dim=mesh->dim;
-    int n=mesh->n;
-    // int np=mesh->np;
-    // int ne=mesh->ne;
-    // int nb=mesh->nb;
-    double **npxy;
-    int **elnp;//**bound;
-    npxy = mesh->npxy;
-    elnp = mesh->elnp;
-    // bound = mesh->bound;
-    /*==============================================================*/
-    double *ret=dvector(1,n);
-
-    for(int i=1;i<=n;i++){
-        int Pi=elnp[K][i];
-        ret[i]=npxy[Pi][x];//Piを構成するx座標
-    }
-    return ret;
-}
-
-//順列の表現
-double **permu(double *a,double b,int N){
-    int sta=1;
-    int end=sta+N;
-    double **Ret=dmatrix(sta,end,sta,end);
-
-    for(int j=sta;j<=end;j++){
-        //Nはベクトルaの長さ
-        //順列の計算
-        double *ret=dvector(sta,end);
-        for(int i=sta;i<=end;i++){
-            if(i<j){
-                ret[i]=a[i];
-            }else if(i==j){
-                ret[i]=b;
-            }else{
-                ret[i]=a[i-1];
-            }
-        }
-        //順列の計算結果をコピー
-        for(int k=sta;k<=end;k++){
-            Ret[j][k]=ret[k];
-        }
-
-        free_dvector(ret,sta,end);
-    }
-
-    return Ret;
-}
 
 //φiφjの積分
 double Int(mesh_t *mesh,int i,int j,int Kl){
@@ -411,139 +357,91 @@ double Int(mesh_t *mesh,int i,int j,int Kl){
     return I;
 }
 
-//２次元の積分点
-double **NumInt_deg_two(mesh_t *mesh,int K){
-    /*==================構造体のデータ読み込み==========================*/
+double **Centroid_coord(mesh_t *mesh){//積分点の重心座標系
     int dim=mesh->dim;
-    // int n=mesh->n;
-    // int np=mesh->np;
-    // int ne=mesh->ne;
-    // int nb=mesh->nb;
-    // double **npxy;
-    // int **elnp,**bound;
-    // npxy = mesh->npxy;
-    // elnp = mesh->elnp;
-    // bound = mesh->bound;
-    /*==============================================================*/
-
-    int N_2=dim+1;
-    double p=(dim+2-sqrt(dim+2))/((dim+1)*(dim+2)),q=(dim+2+dim*sqrt(dim+2))/((dim+1)*(dim+2));
-
-    double **Coord=dmatrix(1,N_2,1,dim);//戻り値用の行列
-    /*=====================積分点の定義==========================*/
-    //順列を二次元配列(行列)として表現する
-
-    int Int_num=dim;//次元？順列の長さ
-
-    double *p_perm=dvector(1,Int_num);
-    for(int i=1;i<=Int_num;i++)p_perm[i]=p;
-
-    double **coef=permu(p_perm,q,Int_num);//順列の入った行列
-
-    int x=1,y=2;
-    double *coor_x=coord(mesh,K,x);//x方向の座標格納,Piを構成するx座標
-    double *coor_y=coord(mesh,K,y);//y方向の座標格納,Piを構成するy座標
-
-    double *integer_point_x=matrix_vector_product(coef,coor_x,dim+1);//重心座標との線形和によって座標を表現する
-    double *integer_point_y=matrix_vector_product(coef,coor_y,dim+1);//重心座標との線形和によって座標を表現する
-
-    free_dmatrix(coef,1,dim+1,1,dim+1);
-    free_dvector(coor_x,1,dim+1);free_dvector(coor_y,1,dim+1);
-    free_dvector(p_perm,1,Int_num);
-    /*==========================================================*/
-    //返す用の変数格納
-    for(int i=1;i<=N_2;i++){
-        Coord[i][x]=integer_point_x[i];
-        Coord[i][y]=integer_point_y[i];
-    }
-    return Coord;//積分点aのreturn
-}
-
-//２次元の積分点
-double **NumInt_deg_five(mesh_t *mesh,int K){
-    /*==================構造体のデータ読み込み==========================*/
-    int dim=mesh->dim;
-    // int n=mesh->n;
-    // int np=mesh->np;
-    // int ne=mesh->ne;
-    // int nb=mesh->nb;
-    // double **npxy;
-    // int **elnp,**bound;
-    // npxy = mesh->npxy;
-    // elnp = mesh->elnp;
-    // bound = mesh->bound;
-    /*==============================================================*/
-
     int N_5=7;
     double p=(6-sqrt(15))/21,q=(9+2*sqrt(15))/21,r=(6+sqrt(15))/21,s=(9-2*sqrt(15))/21;
     double t=1./3.;
+
+    double **t_perm=dmatrix(1,N_5,1,dim+1);
+
+    for(int n=1;n<=N_5;n++){
+        if(n==1){
+            /*=====================i=1(t,t;t)====================*/
+            for(int i=1;i<=dim+1;i++)t_perm[n][i]=t;
+            /*===================================================*/
+        }else if(2<=n && n<=4){
+            /*=====================i=2,3,4(p,p;q)================*/
+            for(int i=1;i<=dim+1;i++){
+                double dummy;
+                if(n-1==i){//対角成分(qの入る位置を考える)2,3,4を1,2,3に揃える
+                    dummy=q;
+                }else{
+                    dummy=p;
+                }
+                t_perm[n][i]=dummy;//1,2,3番目に重みを格納していく
+            }
+            /*===================================================*/
+        }else{
+            for(int i=1;i<=dim+1;i++){
+            /*=====================i=5,6,7(r,r;s)===============*/
+                double dummy;
+                if(n-4==i){//対角成分(qの入る位置を考える)5,6,7を1,2,3に揃える
+                    dummy=s;
+                }else{
+                    dummy=r;
+                }
+                t_perm[n][i]=dummy;//1,2,3番目に重みを格納していく
+            }
+            /*==================================================*/
+        }
+    }
+    return t_perm;
+}
+
+double *Pi(mesh_t *mesh,int Kl,int K_n){//Kl上のK_n個目の積分点の座標
+    int dim=mesh->dim;
+    double **npxy;
+    int **elnp;
+    npxy = mesh->npxy;
+    elnp = mesh->elnp;
+
+    int N_5=7;//積分点
+
+    double *ret=dvector(1,dim);
+    double **Coef=Centroid_coord(mesh);
+    for(int i=1;i<=dim+1;i++){
+        double x_i=npxy[elnp[Kl][i]][1];
+        double y_i=npxy[elnp[Kl][i]][2];
+
+        ret[1]+=Coef[K_n][i]*x_i;
+        ret[2]+=Coef[K_n][i]*y_i;
+    }
+    free_dmatrix(Coef,1,N_5,1,dim+1);
+    return ret;
+}
+
+//２次元の積分点5
+double **NumInt_deg_five(mesh_t *mesh,int K){
+    /*==================構造体のデータ読み込み==========================*/
+    int dim=mesh->dim;
+    /*==============================================================*/
+
+    int N_5=7;
 
     double **Coord=dmatrix(1,N_5,1,dim);//戻り値用の行列
     /*=====================積分点の定義==========================*/
     //順列を二次元配列(行列)として表現する
 
-    int Int_num=dim;
-
-    int x=1,y=2;
-    double *coor_x=coord(mesh,K,x);//x方向の座標格納,Piを構成するx座標
-    double *coor_y=coord(mesh,K,y);//y方向の座標格納,Piを構成するy座標
-
-
-    /*=====================i=1(t,t;t)====================*/
-    //※全て同じ要素なので，順列は(t,t,t)のみ
-    double *t_perm=dvector(1,Int_num+1);
-    for(int i=1;i<=Int_num+1;i++)t_perm[i]=t;
-
-    double a_1_x=inner_product(1,dim+1,t_perm,coor_x);
-    double a_1_y=inner_product(1,dim+1,t_perm,coor_y);
-
-    free_dvector(t_perm,1,Int_num);
-    /*==================================================*/
-
-    /*=====================i=2,3,4(p,p;q)===============*/
-    double *p_perm=dvector(1,Int_num);
-    for(int i=1;i<=Int_num;i++)p_perm[i]=p;
-    double **coef=permu(p_perm,q,Int_num);
-
-
-    double *bynaric_coord_p_x=matrix_vector_product(coef,coor_x,Int_num+1);
-    double *bynaric_coord_p_y=matrix_vector_product(coef,coor_y,Int_num+1);
-    free_dvector(p_perm,1,Int_num);
-    free_dmatrix(coef,1,Int_num,1,Int_num);
-    /*==================================================*/
-
-    /*=====================i=5,6,7(r,r;s)===============*/
-    double *r_perm=dvector(1,Int_num);
-    for(int i=1;i<=Int_num;i++)r_perm[i]=r;
-    coef=permu(r_perm,s,Int_num);
-
-    double *bynaric_coord_r_x=matrix_vector_product(coef,coor_x,Int_num+1);
-    double *bynaric_coord_r_y=matrix_vector_product(coef,coor_y,Int_num+1);
-    free_dvector(r_perm,1,Int_num);
-    free_dmatrix(coef,1,Int_num,1,Int_num);
-    /*==================================================*/
-
-    free_dvector(coor_x,1,dim+1);free_dvector(coor_y,1,dim+1);
-
+    
     for(int i=1;i<=N_5;i++){
-        double rx,ry;
-        int number_p=1,number_r=1;
-        if(i==1){
-            rx=a_1_x;
-            ry=a_1_y;
-
-        }else if(2<=i && i<=4){
-            rx=bynaric_coord_p_x[number_p];
-            ry=bynaric_coord_p_y[number_p];
-            number_p+=1;
-        }else{
-            rx=bynaric_coord_r_x[number_r];
-            ry=bynaric_coord_r_y[number_r];
-            number_r+=1;
+        double *coord_i=Pi(mesh,K,i);
+        for(int j=1;j<=dim;j++){
+            Coord[i][j]=coord_i[j];
         }
-        Coord[i][x]=rx;
-        Coord[i][y]=ry;
+        free_dvector(coord_i,1,N_5);
     }
+    
     return Coord;//積分点aのreturn
 }
 
@@ -664,23 +562,6 @@ double area(mesh_t *mesh,int l){
     return S_Kl;
 }
 
-double *g_Kl(mesh_t *mesh,int Kl){//Kl番目の重心の座標
-    int **elnp;
-    elnp=mesh->elnp;
-    double **npxy;
-    npxy=mesh->npxy;
-    int n=mesh->n;
-    int dim=mesh->dim;
-
-    double *G_coord=dvector(1,dim);
-    for(int i=1;i<=n;i++){
-        int Kl_pi=elnp[Kl][i];
-        for(int coord=1;coord<=dim;coord++){
-            G_coord[coord]+=(npxy[Kl_pi][coord])/n;//[(x1+y1+z1)/3,(x2+y2+z2)/3]
-        }
-    }
-    return G_coord;
-}
 
 void Diriclet(mesh_t *mesh,double **A,double *b){
     printf("Dirichlet(ディリクレ境界条件の反映)\n");
@@ -761,49 +642,90 @@ void Diriclet(mesh_t *mesh,double **A,double *b){
 //pfuncと同様の型の関数の積分
 double Int_div_five(pfunc func,mesh_t *mesh,int Kl,int i,int j){
 
-    // int dim=mesh->dim;
-    double S=area(mesh,Kl);
-    double **Coord=NumInt_deg_five(mesh,Kl);//積分点の定義,５次
-    int N=7;
+    // // int dim=mesh->dim;
+    // double S=area(mesh,Kl);
+    // double **Coord=NumInt_deg_five(mesh,Kl);//積分点の定義,５次
+    // int N_5=7;
 
-    // double *Coord_i=coef_plate_grad(mesh,Kl,i);
-    // double *Coord_j=coef_plate_grad(mesh,Kl,j);
+    // // double *Coord_i=coef_plate_grad(mesh,Kl,i);
+    // // double *Coord_j=coef_plate_grad(mesh,Kl,j);
 
-    double ret=0.0;
+    // double ret=0.0;
+    // double w;
+    // for(int num=1;num<=N_5;num++){
+    //     double x_num_I=Coord[num][1],y_num_I=Coord[num][2];//num番目の積分点の座標
+    //     if(i==1){
+    //         w=9.0/40.0;
+    //     }else if(2<=i && i<=4){
+    //         w=(155.0-sqrt(15))/1200.0;
+    //     }else{
+    //         w=(155.0+sqrt(15))/1200.0;
+    //     }
+
+    //     // double *U=u(x_num_I,y_num_I);
+    //     // // double div=div_u(mesh,x_num_I,y_num_I);
+
+    //     // // double div_int=div*phi(mesh,i,x_num_I,y_num_I,Kl)*phi(mesh,j,x_num_I,y_num_I,Kl);//(∇・u)φiφj
+    //     // // printf("∇・u=%f,phi_i=%f,phi_j%f\n",div,phi(mesh,i,x_num_I,y_num_I,Kl),phi(mesh,j,x_num_I,y_num_I,Kl));
+
+    //     // double phi_i_int=inner_product(1,dim,U,Coord_i);//u・∇φi
+    //     // // printf("u・∇φj=%f,",phi_i_int);
+    //     // double phi_j_int=inner_product(1,dim,U,Coord_j);//u・∇φj
+    //     // // printf("u・∇φj=%f,",phi_j_int);
+    //     // double phi_i=phi(mesh,i,x_num_I,y_num_I,Kl);//φi
+    //     // double phi_j=phi(mesh,j,x_num_I,y_num_I,Kl);//φj
+
+    //     double cover_int=func(mesh,Kl,i,j,x_num_I,y_num_I);
+    //     // double cover_int=phi_i*phi_j_int-phi_j*phi_i_int;
+    //     ret+=w*cover_int;
+
+    //     // free_dvector(U,1,dim);
+    // }
+
+    // // free_dmatrix(Coord,1,N,1,mesh->np);
+    // // free_dvector(Coord_i,0,dim);
+    // // free_dvector(Coord_j,0,dim);
+
+    int dim=mesh->dim;
+    double **npxy=mesh->npxy;
+    int **elnp=mesh->elnp;
+
+    int N_5=7;
     double w;
-    for(int num=1;num<=N;num++){
-        double x_num_I=Coord[num][1],y_num_I=Coord[num][2];
-        if(i==1){
+    double ret=0.0;
+    double S=area(mesh,Kl);
+
+    //関数の値
+    double **Integer_point_bynaritic=Centroid_coord(mesh);
+
+    for(int num=1;num<=N_5;num++){
+        double *x=Pi(mesh,Kl,num);//Klのnum番目の積分点の座標
+        if(num==1){
             w=9.0/40.0;
-        }else if(2<=i && i<=4){
+        }else if(2<=num && num<=4){
             w=(155.0-sqrt(15))/1200.0;
         }else{
             w=(155.0+sqrt(15))/1200.0;
         }
 
-        // double *U=u(x_num_I,y_num_I);
-        // // double div=div_u(mesh,x_num_I,y_num_I);
+        //関数の積分点上での値
+        double f_x=0.0;
+        for(int k=1;k<=dim+1;k++){
+            int Kl_vernum=elnp[Kl][k];//Klのi番目の節点番号
+            double x_kl=npxy[Kl_vernum][1],y_kl=npxy[Kl_vernum][2];//Kl_vernum上での座標値
+            // double phi_i=phi(mesh,i,x_kl,y_kl,Kl);
+            // double phi_j=phi(mesh,j,x_kl,y_kl,Kl);
 
-        // // double div_int=div*phi(mesh,i,x_num_I,y_num_I,Kl)*phi(mesh,j,x_num_I,y_num_I,Kl);//(∇・u)φiφj
-        // // printf("∇・u=%f,phi_i=%f,phi_j%f\n",div,phi(mesh,i,x_num_I,y_num_I,Kl),phi(mesh,j,x_num_I,y_num_I,Kl));
-
-        // double phi_i_int=inner_product(1,dim,U,Coord_i);//u・∇φi
-        // // printf("u・∇φj=%f,",phi_i_int);
-        // double phi_j_int=inner_product(1,dim,U,Coord_j);//u・∇φj
-        // // printf("u・∇φj=%f,",phi_j_int);
-        // double phi_i=phi(mesh,i,x_num_I,y_num_I,Kl);//φi
-        // double phi_j=phi(mesh,j,x_num_I,y_num_I,Kl);//φj
-
-        double cover_int=func(mesh,Kl,i,j,x_num_I,y_num_I);
-        // double cover_int=phi_i*phi_j_int-phi_j*phi_i_int;
-        ret+=w*cover_int;
-
-        // free_dvector(U,1,dim);
+            f_x+=Integer_point_bynaritic[num][k]*func(mesh,Kl,i,j,x_kl,y_kl);;
+        }
+        
+        ret+=w*f_x;
+        
+        free_dvector(x,1,dim);
     }
 
-    // free_dmatrix(Coord,1,N,1,mesh->np);
-    // free_dvector(Coord_i,0,dim);
-    // free_dvector(Coord_j,0,dim);
+    free_dmatrix(Integer_point_bynaritic,1,N_5,1,dim+1);
+
 
     return S*ret;
 }
@@ -1056,6 +978,7 @@ double err_Lp(mesh_t *mesh,double *u,double p,double t){//時刻tにおける解
 
 //流速に依存した上流点の探索
 int search_past_point(mesh_t *mesh,double x_n,double y_n,double *u,double dt){
+
     // int ne=mesh->ne;
     int **elel=mesh->elel;
     // int n=mesh->n;
@@ -1085,3 +1008,4 @@ int search_past_point(mesh_t *mesh,double x_n,double y_n,double *u,double dt){
     }
     return past_kl;
 }
+

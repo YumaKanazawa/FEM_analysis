@@ -19,7 +19,7 @@ double u_exa(double x,double y,double t){
 
 //nonlinear of advection diffusion equation
 double f(double x,double y){
-    return 1.0+0.0*(x+y);
+    return 0.0+0.0*(x+y);
 }
 
 //initial condition
@@ -55,8 +55,8 @@ void error_write(double p,double err){
 
 //移流拡散(一回微分を含む方程式)
 int main(int argc,char *argv[]){
-    weak weak_form=&heat;//ここを変える
-    out pre_sol=&RHS_heat;//右辺のベクトルの離散化
+    weak weak_form=&advect;//ここを変える
+    out pre_sol=&RHS_advect;//右辺のベクトルの離散化
 
     // main_mesh.hのSUPGの値を0にする．
     printf("N=%d,Δt=%f\n",N,delta_t);

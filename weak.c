@@ -1,6 +1,6 @@
 #include "main_mesh.h"//メッシュ作成の関数
 
-#define D 0.1//(1.25*pow(10,-4))//Diffusion Coefficient
+#define D 0.01//(1.25*pow(10,-4))//Diffusion Coefficient
 #define N 32
 #define Nt (5*pow(N,2)/2)//時間方向の分割数
 #define T_max M_PI

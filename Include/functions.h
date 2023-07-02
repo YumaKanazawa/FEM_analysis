@@ -147,7 +147,7 @@ void free_imatrix(int **a, int nr1,int nr2,int nl1,int nl2){
   return;
 }
 
-double *matrix_vector_product(double **a, double *b ,int n){
+double *matrix_vector_product(double **a, double *b ,int n){//正方行列Aとベクトルbの積
   int sta=1;
   int end=sta+n-1;
   double *c=dvector(sta,end);
@@ -157,6 +157,27 @@ double *matrix_vector_product(double **a, double *b ,int n){
   for ( i = sta; i <= end; i++){
     wk = 0.0;
     for ( j = sta; j <= end; j++ ){
+      wk += a[i][j]*b[j];
+    }
+    c[i] = wk;
+  }
+  return c;
+}
+
+double *non_regular_product(double **a,int M1,int M2,double *b,int bl){//正方行列Aとベクトルbの積
+  if(M2!=bl){
+    printf("times Error!\n");
+    exit(1);
+  }
+  int sta=1;
+  // int end=sta+n-1;
+  double *c=dvector(sta,sta+M1-1);
+
+  double wk;
+  int i, j;
+  for ( i = sta; i <=sta+M1-1; i++){
+    wk = 0.0;
+    for ( j = sta; j <=sta+M2-1; j++ ){
       wk += a[i][j]*b[j];
     }
     c[i] = wk;

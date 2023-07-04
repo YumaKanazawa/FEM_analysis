@@ -35,9 +35,13 @@ double u_exa(double x,double y,double t){
     return sigma/coef*exp(-exp_in/coef);
 }
 
+//phi_i*phi_jの積
 double phi_ij(mesh_t *mesh,int Kl,int i,int j,double x,double y){
     int n=mesh->n;
-    return 0.0;
+
+    double phi_ij=phi(mesh,i,x,y,Kl)*phi(mesh,j,x,y,Kl);
+
+    return phi_ij;
 }
 
 //nonlinear of advection diffusion equation
@@ -83,12 +87,11 @@ double charactic_advection(mesh_t *mesh,int Kl,int i,int j){
 
 
 //積分の近似
-double upstream_Integration(mesh_t *mesh,int Kl,int i,int j){
+double upstream_Integration(mesh_t *mesh,int Kl,int j,double *u_old){
     int dim=mesh->dim;
-    // double **npxy;
-    // int **elnp,**bound;
-    // npxy = mesh->npxy;
-    // elnp = mesh->elnp;
+    double **npxy=mesh->npxy;
+    int **elnp= mesh->elnp;
+    int n=mesh->n;
 
     int N_5=7;
     double w;
@@ -101,7 +104,13 @@ double upstream_Integration(mesh_t *mesh,int Kl,int i,int j){
 
         int upstream=search_past_point(mesh,x[1],x[2],U,delta_t);//xの上流点が含まれる要素番号
 
-        free_dvector(U,1,dim);
+        // int up=count(mesh,x[1]-delta_t*U[1],x[2]-delta_t*U[2]);
+
+        // printf("x=%f,y=%f\n",x[1],x[2]);
+        // printf("x=%f,y=%f\n",x[1]-delta_t*U[1],x[2]-delta_t*U[2]);
+
+        // printf("Kl=%d:%d,%d\n",Kl,up,upstream);
+
 
         if(num==1){
             w=9.0/40.0;
@@ -113,15 +122,23 @@ double upstream_Integration(mesh_t *mesh,int Kl,int i,int j){
 
         double *x1=Pi(mesh,upstream,num);//Klのnum番目の上流点の座標
         
-        double phi_i=phi(mesh,i,x1[1],x1[2],Kl);
-        double phi_j=phi(mesh,j,x[1],x[2],Kl);
-        ret+=w*phi_i*phi_j;
-        
+        double phi_i=0;//上流点の関数の近似
+        for(int i=1;i<=n;i++){
+            phi_i+=u_old[elnp[upstream][i]]*phi(mesh,elnp[upstream][i],x1[1],x1[2],upstream);
+        }
+
+        double phi_j=phi(mesh,elnp[Kl][j],x[1],x[2],Kl);
+
+        double up_int=w*phi_i*phi_j;//積分点の上流点での値
+
+        ret+=up_int;
+
+        free_dvector(U,1,dim);
         free_dvector(x,1,dim);
         free_dvector(x1,1,dim);
     }
 
-    return S*ret;
+    return ret;
 }
 
 //右辺の行列
@@ -176,38 +193,18 @@ double *out_force_charcterize(mesh_t *mesh,double *u_old){
 
 
         /*===================上流点の要素内における積分の計算======================*/
-        double **M_up=dmatrix(1,n,1,n);//要素質量行列
         for(int i=1;i<=n;i++){  
-            for(int j=1;j<=n;j++){
-                // int ver1=elnp[l][i],ver2=elnp[l][j];//lを構成するi番目の節点番号
-                /*==========∫φiφjdxの計算結果代入==============*/
-                double I_up=upstream_Integration(mesh,l,i,j);//i->Pi,j->Pjとして考えている．
-                /*==========================================*/
-                M_up[i][j]+=I_up;
-            }
+            int ver=elnp[l][i];
+            /*==========∫φiφjdxの計算結果代入==============*/
+            double I_up=upstream_Integration(mesh,l,i,u_old);//i->Pi,j->Pjとして考えている．
+            /*===============================================*/
+            return_vector[ver]=I_up;
         }
-
-        /*==================要素質量外力ベクトル======================*/
-        for(int i=1;i<=n;i++){
-            int ver1=elnp[l][i];//l番目の要素のi番目の接点
-            u_old_vector[i]=u_old[ver1];//上流点用の値格納，RHS(u_old,ver1,x,y);
-        }
-        double *rhs_1=matrix_vector_product(M_up,u_old_vector,n);
-        /*=========================================================*/
-
-        /*================返すベクトルに値を代入していく================*/
-        for(int i=1;i<=n;i++){
-            int ver1=elnp[l][i];
-            return_vector[ver1]+=rhs_1[i];//上流点の位置はそれぞれで分けなくてはならない
-        }
-        /*=========================================================*/
 
         free_dvector(f_vector,1,n);
         free_dvector(u_old_vector,1,n);
         free_dmatrix(M,1,n,1,n);
-        free_dmatrix(M_up,1,n,1,n);
         free_dvector(rhs,1,np);
-        free_dvector(rhs_1,1,np);
     }
 
     
@@ -274,44 +271,35 @@ int main(int argc,char *argv[]){
     /*==============================================================*/
 
 
-    // //初期条件の代入
-    // double *u_old=dvector(1,np);
-    // for(int i=1;i<=np;i++){
-    //     double x=npxy[i][1],y=npxy[i][2];
-    //     u_old[i]=init(x,y);
-    // }
-    // double **A=Al(weak_form,&mesh);//剛性行列(境界条件込み)
-
-    // for(int T=0;T<=Nt;T+=1){//時刻Tにおいて解を求める
-    //     double *RHS=out_force_charcterize(&mesh,u_old);
-    //     printf("t=%d,|u|=%f\n",T,vector_norm1(u_old,1,np,1.0));
-
-    //     char str[200];
-    //     sprintf(str,"figure/mesh%d.dat",T);
-    //     // make_mesh_data_for_gnuplot(mesh,u_old,str);//gnuplot用のファイル作成
-    //     make_result_data_for_GLSC(&mesh,u_old,str);//GLSC用のデータ出力
-
-    //     double *u=CG_CRS(A,RHS,np);//解の計算
-    //     for(int i=1;i<=np;i++){
-    //         u_old[i]=u[i];
-    //     }
-
-    //     free_dvector(u,1,np);
-    //     free_dvector(RHS,1,np);
-    // }
-
-    // free_dmatrix(A,1,np,1,np);
-    // free_dvector(u_old,1,np);
-
-
-    int l=1;
-    for(int i=1;i<=mesh.dim+1;i++){
-        for(int j=1;j<=mesh.dim+1;j++){
-            int ver1=mesh.elnp[l][i],ver2=mesh.elnp[l][j];
-            printf("%f,%f",Int(&mesh,ver1,ver2,l),1./12);
-        }
-        printf("\n");
+    //初期条件の代入
+    double *u_old=dvector(1,np);
+    for(int i=1;i<=np;i++){
+        double x=npxy[i][1],y=npxy[i][2];
+        u_old[i]=init(x,y);
     }
+    double **A=Al(weak_form,&mesh);//剛性行列(境界条件込み)
+
+    for(int T=0;T<=Nt;T+=1){//時刻Tにおいて解を求める
+        double *RHS=out_force_charcterize(&mesh,u_old);
+        printf("t=%d,|u|=%f\n",T,vector_norm1(u_old,1,np,1.0));
+
+        char str[200];
+        sprintf(str,"figure/mesh%d.dat",T);
+        // make_mesh_data_for_gnuplot(mesh,u_old,str);//gnuplot用のファイル作成
+        make_result_data_for_GLSC(&mesh,u_old,str);//GLSC用のデータ出力
+
+        double *u=CG_CRS(A,RHS,np);//解の計算
+        for(int i=1;i<=np;i++){
+            u_old[i]=u[i];
+        }
+
+        free_dvector(u,1,np);
+        free_dvector(RHS,1,np);
+    }
+
+    free_dmatrix(A,1,np,1,np);
+    free_dvector(u_old,1,np);
+
 
     mesh_free(&mesh);//free;
     return 0;

@@ -708,18 +708,22 @@ double Int_div_five(pfunc func,mesh_t *mesh,int Kl,int i,int j){
             w=(155.0+sqrt(15))/1200.0;
         }
 
-        //関数の積分点上での値
-        double f_x=0.0;
-        for(int k=1;k<=dim+1;k++){
-            int Kl_vernum=elnp[Kl][k];//Klのi番目の節点番号
-            double x_kl=npxy[Kl_vernum][1],y_kl=npxy[Kl_vernum][2];//Kl_vernum上での座標値
-            // double phi_i=phi(mesh,i,x_kl,y_kl,Kl);
-            // double phi_j=phi(mesh,j,x_kl,y_kl,Kl);
+        ret+=w*func(mesh,Kl,i,j,x[1],x[2]);//積分点上での関数の値をもちいて重みをかけて和を取る
 
-            f_x+=Integer_point_bynaritic[num][k]*func(mesh,Kl,i,j,x_kl,y_kl);;
-        }
+        // //関数の積分点上での値
+        // double f_x=0.0;
+        // for(int k=1;k<=dim+1;k++){
+        //     int Kl_vernum=elnp[Kl][k];//Klのi番目の節点番号
+        //     // double x_kl=npxy[Kl_vernum][1],y_kl=npxy[Kl_vernum][2];//Kl_vernum上での座標値
+        //     // double phi_i=phi(mesh,i,x_kl,y_kl,Kl);
+        //     // double phi_j=phi(mesh,j,x_kl,y_kl,Kl);
+
+        //     f_x+=Integer_point_bynaritic[num][k]*func(mesh,Kl,i,j,x[1],x[2]);
+        //     printf("f(x)=%f\n",func(mesh,Kl,i,j,x[1],x[2]));
+
+        // }
         
-        ret+=w*f_x;
+        // ret+=w*f_x;
         
         free_dvector(x,1,dim);
     }

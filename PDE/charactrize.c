@@ -87,58 +87,65 @@ double charactic_advection(mesh_t *mesh,int Kl,int i,int j){
 
 
 //積分の近似
-double upstream_Integration(mesh_t *mesh,int Kl,int j,double *u_old){
+double *upstream_Integration(mesh_t *mesh,double *u_old){
     int dim=mesh->dim;
     double **npxy=mesh->npxy;
     int **elnp= mesh->elnp;
     int n=mesh->n;
 
     int N_5=7;
-    double w;
-    double ret=0.0;
-    double S=area(mesh,Kl);
 
-    for(int num=1;num<=N_5;num++){
-        double *x=Pi(mesh,Kl,num);//Klのnum番目の積分点の座標
-        double *U=u(x[1],x[2]);//積分点上の流速
+    double *retrun_vector=dvector(1,mesh->np);
 
-        int upstream=search_past_point(mesh,x[1],x[2],U,delta_t);//xの上流点が含まれる要素番号
+    for(int Kl=1;Kl<=mesh->ne;Kl++){
+        double S=area(mesh,Kl);
+        for(int j=1;j<=dim+1;j++){
+            double ret=0.0;
+            for(int num=1;num<=N_5;num++){
+                double *x=Pi(mesh,Kl,num);//Klのnum番目の積分点の座標
+                double *U=u(x[1],x[2]);//積分点上の流速
 
-        // int up=count(mesh,x[1]-delta_t*U[1],x[2]-delta_t*U[2]);
+                int upstream=search_past_point(mesh,x[1],x[2],U,delta_t);//xの上流点が含まれる要素番号
 
-        // printf("x=%f,y=%f\n",x[1],x[2]);
-        // printf("x=%f,y=%f\n",x[1]-delta_t*U[1],x[2]-delta_t*U[2]);
+                // int up=count(mesh,x[1]-delta_t*U[1],x[2]-delta_t*U[2]);
 
-        // printf("Kl=%d:%d,%d\n",Kl,up,upstream);
+                // printf("x=%f,y=%f\n",x[1],x[2]);
+                // printf("x=%f,y=%f\n",x[1]-delta_t*U[1],x[2]-delta_t*U[2]);
 
+                // printf("Kl=%d:%d,%d\n",Kl,up,upstream);
 
-        if(num==1){
-            w=9.0/40.0;
-        }else if(2<=num && num<=4){
-            w=(155.0-sqrt(15))/1200.0;
-        }else{
-            w=(155.0+sqrt(15))/1200.0;
+                double w;
+                if(num==1){
+                    w=9.0/40.0;
+                }else if(2<=num && num<=4){
+                    w=(155.0-sqrt(15))/1200.0;
+                }else{
+                    w=(155.0+sqrt(15))/1200.0;
+                }
+
+                double *x1=Pi(mesh,upstream,num);//Klのnum番目の上流点の座標
+                
+                double phi_i=0;//上流点の関数の近似
+                for(int i=1;i<=n;i++){
+                    phi_i+=u_old[elnp[upstream][i]]*phi(mesh,elnp[upstream][i],x1[1],x1[2],upstream);
+                }
+
+                double phi_j=phi(mesh,elnp[Kl][j],x[1],x[2],Kl);
+
+                double up_int=w*phi_i*phi_j;//積分点の上流点での値
+
+                ret+=up_int;
+
+                free_dvector(U,1,dim);
+                free_dvector(x,1,dim);
+                free_dvector(x1,1,dim);
+            }
+
+            int ver=elnp[Kl][j];
+            retrun_vector[ver]=S*ret;
         }
-
-        double *x1=Pi(mesh,upstream,num);//Klのnum番目の上流点の座標
-        
-        double phi_i=0;//上流点の関数の近似
-        for(int i=1;i<=n;i++){
-            phi_i+=u_old[elnp[upstream][i]]*phi(mesh,elnp[upstream][i],x1[1],x1[2],upstream);
-        }
-
-        double phi_j=phi(mesh,elnp[Kl][j],x[1],x[2],Kl);
-
-        double up_int=w*phi_i*phi_j;//積分点の上流点での値
-
-        ret+=up_int;
-
-        free_dvector(U,1,dim);
-        free_dvector(x,1,dim);
-        free_dvector(x1,1,dim);
     }
-
-    return ret;
+    return retrun_vector;
 }
 
 //右辺の行列
@@ -163,7 +170,7 @@ double *out_force_charcterize(mesh_t *mesh,double *u_old){
         //要素KlがPi,Pj,Pkで構成されている
         double **M=dmatrix(1,n,1,n);//要素質量行列
         double *f_vector=dvector(1,n);
-        double *u_old_vector=dvector(1,n);
+        // double *u_old_vector=dvector(1,n);
 
         /*========外力項の計算=========*/
         /*===================剛性行列の作成==========================*/
@@ -192,21 +199,24 @@ double *out_force_charcterize(mesh_t *mesh,double *u_old){
         /*=============================*/
 
 
-        /*===================上流点の要素内における積分の計算======================*/
-        for(int i=1;i<=n;i++){  
-            int ver=elnp[l][i];
-            /*==========∫φiφjdxの計算結果代入==============*/
-            double I_up=upstream_Integration(mesh,l,i,u_old);//i->Pi,j->Pjとして考えている．
-            /*===============================================*/
-            return_vector[ver]=I_up;
-        }
+        // /*===================上流点の要素内における積分の計算======================*/
+        // for(int i=1;i<=n;i++){  
+        //     int ver=elnp[l][i];
+        //     /*==========∫φiφjdxの計算結果代入==============*/
+        //     double I_up=upstream_Integration(mesh,l,i,u_old);//i->Pi,j->Pjとして考えている．
+        //     /*===============================================*/
+        //     return_vector[ver]=I_up;
+        // }
 
         free_dvector(f_vector,1,n);
-        free_dvector(u_old_vector,1,n);
+        // free_dvector(u_old_vector,1,n);
         free_dmatrix(M,1,n,1,n);
         free_dvector(rhs,1,np);
     }
 
+    double *RHS=upstream_Integration(mesh,u_old);
+    for(int i=1;i<=np;i++)return_vector[i]+=RHS[i];
+    free_dvector(RHS,1,np);
     
     /*=====================ノイマン条件の反映=====================*/
     for(int b=1;b<=nb;b++){

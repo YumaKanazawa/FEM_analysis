@@ -332,6 +332,7 @@ double *LU_Decomp(double **L,double **U,double *B,int M){
   int sta=1;
   int end=sta+M;
   double *W_out=dvector(sta,end-1);//alloc_vector(M);
+
   // double **L=dmatrix(sta,end-1,sta,end-1);//alloc_matrix(M,M);
   // double **U=dmatrix(sta,end-1,sta,end-1);//alloc_matrix(M,M);
 
@@ -401,7 +402,7 @@ double *LU_Decomp(double **L,double **U,double *B,int M){
   return W_out;
 }
 
-double *CG(double **A,double *b,int M){//M次元正定値対称行列
+double *CG(double **A,double *b,int M){//M次元正定値対称行列の解
   int sta=1;
   int end=sta+M-1;
 
@@ -463,7 +464,7 @@ typedef struct CRS{
 
   int M;//行列のサイズ
   int A_l;//non-zero要素の個数
-  int ia_l;//iaの長さ
+  int ia_l;//iaの長さs
   int ja_l;//jaの長さ
 }CRS_t;
 
@@ -546,15 +547,16 @@ void free_CRS(CRS_t *CRS,int M,int N){
   free_ivector(CRS->ja,sta,A_l);
 }
 
-double *matrix_vector_product_CRS(CRS_t *CRS_A,double *x,int n){
 
-  // CRS_t CRS_A;
-  // CRS(&CRS_A,A,n);
+double *matrix_vector_product_CRS(double **A,double *x,int n){
+
+  CRS_t CRS_A;
+  CRS(&CRS_A,A,n);
   // double *a,int *ja,int *ia,
   
-  double *a=CRS_A->A;
-  int *ja=CRS_A->ja;
-  int *ia=CRS_A->ia;
+  double *a=CRS_A.A;
+  int *ja=CRS_A.ja;
+  int *ia=CRS_A.ia;
 
   int sta=1;
   double *ret=dvector(sta,sta+n);
@@ -568,14 +570,15 @@ double *matrix_vector_product_CRS(CRS_t *CRS_A,double *x,int n){
     }
     ret[col]=sum;
   }
-  // free_CRS(&CRS_A,n,n);
+
+  free_CRS(&CRS_A,n,n);
 
   return ret;
 }
 
 double *CG_CRS(double **A,double *b,int M){//M次元正定値対称行列
-  CRS_t CRS_A;
-  CRS(&CRS_A,A,M);
+  // CRS_t CRS_A;
+  // CRS(&CRS_A,A,M);
 
   int sta=1;
   int end=sta+M-1;
@@ -586,7 +589,7 @@ double *CG_CRS(double **A,double *b,int M){//M次元正定値対称行列
   double *r=dvector(sta,end);//-∇f(=r0)
   double *p=dvector(sta,end);//directionベクトル
 
-  double *AT=matrix_vector_product_CRS(&CRS_A,x,M);
+  double *AT=matrix_vector_product_CRS(A,x,M);
   for(int i=sta;i<=end;i++){
     r[i]=b[i]-AT[i];//r0=b-AT
     p[i]=r[i];//d0=r0
@@ -596,7 +599,7 @@ double *CG_CRS(double **A,double *b,int M){//M次元正定値対称行列
   //k番目について
   int count=0;
   while(count<pow(10,5)){//反復回数
-    double *q=matrix_vector_product_CRS(&CRS_A,p,M);//q=Ap
+    double *q=matrix_vector_product_CRS(A,p,M);//q=Ap
     double alpha=gamma/inner_product(sta,end,p,q);//γ/(p,q)
 
     for(int i=sta;i<=end;i++){
@@ -623,7 +626,7 @@ double *CG_CRS(double **A,double *b,int M){//M次元正定値対称行列
   free_dvector(AT,sta,end);
   free_dvector(r,sta,end);
   free_dvector(p,sta,end);
-  free_CRS(&CRS_A,M,M);
+  // free_CRS(&CRS_A,M,M);
 
 
   return x;

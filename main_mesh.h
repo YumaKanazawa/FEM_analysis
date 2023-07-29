@@ -35,8 +35,7 @@ double init(double x,double y);//initial condition
 double *u(double x,double y);//Already given vector
 double phi_ij(mesh_t *mesh,int Kl,int i,int j,double x,double y);//必要な数値積分用の関数
 double u_exa(double x,double y,double t);
-
-
+  
 typedef double (* pfunc)(mesh_t *mesh,int Kl,int i,int j,double x,double y);//被積分関数の定義
 double Int_div_five(pfunc func,mesh_t *mesh,int Kl,int i,int j);//pfunc型の関数の数値積分
 
@@ -45,6 +44,7 @@ double **Al(weak weak_form,mesh_t *mesh);
 
 typedef double (*out)(double *u_p,int i,double x,double y);//右辺の離散化における関数
 double *out_force(out RHS,mesh_t *mesh,double *u_old);
+
 
 void alloc_scan_mesh(mesh_t *mesh,char *s1,char *s2){
     FILE *fp;
@@ -121,7 +121,7 @@ void mesh_free(mesh_t *mesh){
     free_dmatrix(mesh->npxy,1,np,1,dim); printf("npxy,"); fflush(stdout);
     free_imatrix(mesh->elnp,1,ne,1,dim+1); printf("elnp,"); fflush(stdout);
     free_imatrix(mesh->bound,1,nb,1,dim+1); printf("bound,"); fflush(stdout);
-    free_imatrix(mesh->elel,1,ne,1,dim+1);
+    free_imatrix(mesh->elel,1,ne,1,dim+1);  printf("elel,"); fflush(stdout);
     printf(".... end\n"); fflush(stdout);
     return;
 }
@@ -354,6 +354,38 @@ double Int(mesh_t *mesh,int i,int j,int Kl){
     }else{
         I=S_Kl/12.0;
     }
+
+    // int dim=mesh->dim;
+    // int **elnp=mesh->elnp;
+    // double ret=0.0;
+
+    // int N_5=7;//積分点の個数
+    // for(int num=1;num<=N_5;num++){
+    //     double w;//積分点の重み
+    //     if(num==1){
+    //         w=9.0/40.0;
+    //     }else if(2<=num && num<=4){
+    //         w=(155.0-sqrt(15))/1200.0;
+    //     }else{
+    //         w=(155.0+sqrt(15))/1200.0;
+    //     }
+
+    //     double *x=Pi(mesh,Kl,num);//Klのnum番目の積分点の座標
+    //     int ver1=elnp[Kl][i],ver2=elnp[Kl][j];//要素Klのi,j番目の節点番号
+
+    //     double phi_i=phi(mesh,ver1,x[1],x[2],Kl);//Klの積分点における関数の値
+    //     double phi_j=phi(mesh,ver2,x[1],x[2],Kl);//Klの積分点における関数の値
+
+    //     ret+=w*phi_i*phi_j;
+
+    //     free_dvector(x,1,dim);
+    // }
+
+    // if(fabs(S_Kl*ret-I)>0.001){
+    //     printf("Integration Error!%f\n",fabs(ret-I));
+    //     exit(1);
+    // }
+    
     return I;
 }
 
@@ -432,8 +464,6 @@ double **NumInt_deg_five(mesh_t *mesh,int K){
     double **Coord=dmatrix(1,N_5,1,dim);//戻り値用の行列
     /*=====================積分点の定義==========================*/
     //順列を二次元配列(行列)として表現する
-
-    
     for(int i=1;i<=N_5;i++){
         double *coord_i=Pi(mesh,K,i);
         for(int j=1;j<=dim;j++){
@@ -511,6 +541,7 @@ double *coef_plate_grad(mesh_t *mesh ,int ele_number,int ver_number){
     return C;//係数ベクトルを返す
 }
 
+//i,jの座標間の距離
 double L(mesh_t *mesh,int i,int j){
     /*==================構造体のデータ読み込み==========================*/
     // int dim=mesh->dim;
@@ -534,8 +565,8 @@ double L(mesh_t *mesh,int i,int j){
     return pow(l,0.5);
 }
 
+//l番目の要素の面積
 double area(mesh_t *mesh,int l){
-    //l番目の要素の面積
     /*==================構造体のデータ読み込み==========================*/
     int dim=mesh->dim;
     int n=mesh->n;
@@ -562,7 +593,7 @@ double area(mesh_t *mesh,int l){
     return S_Kl;
 }
 
-
+//Diriclet境界条件の反映
 void Diriclet(mesh_t *mesh,double **A,double *b){
     printf("Dirichlet(ディリクレ境界条件の反映)\n");
     /*==================構造体のデータ読み込み==========================*/
@@ -642,53 +673,9 @@ void Diriclet(mesh_t *mesh,double **A,double *b){
 //pfuncと同様の型の関数の積分
 double Int_div_five(pfunc func,mesh_t *mesh,int Kl,int i,int j){
 
-    // // int dim=mesh->dim;
-    // double S=area(mesh,Kl);
-    // double **Coord=NumInt_deg_five(mesh,Kl);//積分点の定義,５次
-    // int N_5=7;
-
-    // // double *Coord_i=coef_plate_grad(mesh,Kl,i);
-    // // double *Coord_j=coef_plate_grad(mesh,Kl,j);
-
-    // double ret=0.0;
-    // double w;
-    // for(int num=1;num<=N_5;num++){
-    //     double x_num_I=Coord[num][1],y_num_I=Coord[num][2];//num番目の積分点の座標
-    //     if(i==1){
-    //         w=9.0/40.0;
-    //     }else if(2<=i && i<=4){
-    //         w=(155.0-sqrt(15))/1200.0;
-    //     }else{
-    //         w=(155.0+sqrt(15))/1200.0;
-    //     }
-
-    //     // double *U=u(x_num_I,y_num_I);
-    //     // // double div=div_u(mesh,x_num_I,y_num_I);
-
-    //     // // double div_int=div*phi(mesh,i,x_num_I,y_num_I,Kl)*phi(mesh,j,x_num_I,y_num_I,Kl);//(∇・u)φiφj
-    //     // // printf("∇・u=%f,phi_i=%f,phi_j%f\n",div,phi(mesh,i,x_num_I,y_num_I,Kl),phi(mesh,j,x_num_I,y_num_I,Kl));
-
-    //     // double phi_i_int=inner_product(1,dim,U,Coord_i);//u・∇φi
-    //     // // printf("u・∇φj=%f,",phi_i_int);
-    //     // double phi_j_int=inner_product(1,dim,U,Coord_j);//u・∇φj
-    //     // // printf("u・∇φj=%f,",phi_j_int);
-    //     // double phi_i=phi(mesh,i,x_num_I,y_num_I,Kl);//φi
-    //     // double phi_j=phi(mesh,j,x_num_I,y_num_I,Kl);//φj
-
-    //     double cover_int=func(mesh,Kl,i,j,x_num_I,y_num_I);
-    //     // double cover_int=phi_i*phi_j_int-phi_j*phi_i_int;
-    //     ret+=w*cover_int;
-
-    //     // free_dvector(U,1,dim);
-    // }
-
-    // // free_dmatrix(Coord,1,N,1,mesh->np);
-    // // free_dvector(Coord_i,0,dim);
-    // // free_dvector(Coord_j,0,dim);
-
     int dim=mesh->dim;
-    double **npxy=mesh->npxy;
-    int **elnp=mesh->elnp;
+    // double **npxy=mesh->npxy;
+    // int **elnp=mesh->elnp;
 
     int N_5=7;
     double w;
@@ -709,21 +696,6 @@ double Int_div_five(pfunc func,mesh_t *mesh,int Kl,int i,int j){
         }
 
         ret+=w*func(mesh,Kl,i,j,x[1],x[2]);//積分点上での関数の値をもちいて重みをかけて和を取る
-
-        // //関数の積分点上での値
-        // double f_x=0.0;
-        // for(int k=1;k<=dim+1;k++){
-        //     int Kl_vernum=elnp[Kl][k];//Klのi番目の節点番号
-        //     // double x_kl=npxy[Kl_vernum][1],y_kl=npxy[Kl_vernum][2];//Kl_vernum上での座標値
-        //     // double phi_i=phi(mesh,i,x_kl,y_kl,Kl);
-        //     // double phi_j=phi(mesh,j,x_kl,y_kl,Kl);
-
-        //     f_x+=Integer_point_bynaritic[num][k]*func(mesh,Kl,i,j,x[1],x[2]);
-        //     printf("f(x)=%f\n",func(mesh,Kl,i,j,x[1],x[2]));
-
-        // }
-        
-        // ret+=w*f_x;
         
         free_dvector(x,1,dim);
     }
@@ -734,6 +706,7 @@ double Int_div_five(pfunc func,mesh_t *mesh,int Kl,int i,int j){
     return S*ret;
 }
 
+//基底関数phi
 double phi(mesh_t *mesh,int i,double x,double y,int Kl){
     // int n=mesh->n;
     int dim=mesh->dim;
@@ -749,6 +722,7 @@ double phi(mesh_t *mesh,int i,double x,double y,int Kl){
     return ret;
 }
 
+//GLSC出力用の関数
 void make_result_data_for_GLSC(mesh_t *mesh,double *u,char *str){
     // int np=mesh.np;
     int dim=mesh->dim;
@@ -842,7 +816,7 @@ double **Al(weak weak_form,mesh_t *mesh){
     return A;
 }
 
-//右辺の行列
+//外力項の離散化
 double *out_force(out RHS,mesh_t *mesh,double *u_old){
     pfunc func_SUPG=&phi_ij;
 
@@ -888,7 +862,7 @@ double *out_force(out RHS,mesh_t *mesh,double *u_old){
             u_old_vector[i]=RHS(u_old,ver1,x,y);
         }
         // double *rhs=matrix_vector_product(M,f_vector,n);
-        double *rhs_1=matrix_vector_product(M,u_old_vector,n);
+        double *rhs_1=matrix_vector_product_CRS(M,u_old_vector,n);
         /*=========================================================*/
 
         /*================返すベクトルに値を代入していく================*/
@@ -934,7 +908,7 @@ double *out_force(out RHS,mesh_t *mesh,double *u_old){
                 Neumman_vector[i]=g1(npxy[ver][1],npxy[ver][2]);
             }
 
-            double *rhs_Neumman=matrix_vector_product(B,Neumman_vector,Neumman_dim);
+            double *rhs_Neumman=matrix_vector_product_CRS(B,Neumman_vector,Neumman_dim);
 
             for(int i=1;i<=Neumman_dim;i++){
                 int ver1=bound[b][i];
@@ -997,7 +971,7 @@ int search_past_point(mesh_t *mesh,double x_n,double y_n,double *u,double dt){
     for(;;){
         if(check_Kl_pi==-10){//Klに入ってるか探索
             past_kl=inside_Kl;//inside_Kl要素にx_p,y_pがある
-            // printf("Coordinate is inside %d\n",past_kl);
+            // printf("Coordinate is inside %d\n",past_kl);q
             break;
         }else{
             // printf("Now_ele=%d\n",inside_Kl);

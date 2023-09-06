@@ -229,7 +229,7 @@ int ele_inside(mesh_t *mesh,int Kl,double x,double y){//入ってるかどうか
 
     
     int Return_value;
-    if(counter==n){//全重心座標が>0ならnを返す
+    if(counter==n){//全重心座標が>0ならnを返す．counter番目の要素に含まれる
         Return_value=-10;
     }else{//そうでなければ次の値を
         Return_value=next_position;
@@ -974,12 +974,12 @@ int search_past_point(mesh_t *mesh,double x_n,double y_n,double *u,double dt){
             // printf("Coordinate is inside %d\n",past_kl);q
             break;
         }else{
-            // printf("Now_ele=%d\n",inside_Kl);
-            // printf("Next direction=%d\n",check_Kl_pi);
-            // printf("%d,%d,%d\n",elel[inside_Kl][1],elel[inside_Kl][2],elel[inside_Kl][3]);
-
             inside_Kl=elel[inside_Kl][check_Kl_pi];//次に考えなくてはならない要素番号
-            // printf("Choose El=%d\n\n",inside_Kl);
+            
+            if(inside_Kl==-1){//要素番号が-1．上流点が外側にある場合
+                // inside_Kl=past_kl;
+                break;
+            }
 
             check_Kl_pi=ele_inside(mesh,inside_Kl,x_p,y_p);
         }

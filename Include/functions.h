@@ -109,7 +109,8 @@ void free_dmatrix(double **a,int nr1,int nr2,int nl1,int nl2){
     for (int i = nr1 ; i <= nr2 ; i++) free((void *)(a[i]+nl1));
     free((void *)(a+nr1));
   }else{
-    printf("Non Matrix dimension!\n");
+    printf("row=%d,%d,col=%d,%d\n",nl1,nl2,nr1,nr2);
+    printf("Non Matrix dimension_d!\n");
   }
   return;
 }
@@ -142,7 +143,8 @@ void free_imatrix(int **a, int nr1,int nr2,int nl1,int nl2){
     for (int i = nr1 ; i <= nr2 ; i++) free((void *)(a[i]+nl1));
     free((void *)(a+nr1));
   }else{
-    printf("Non Matrix dimension!\n");
+    printf("row=%d,%d,col=%d,%d\n",nl1,nl2,nr1,nr2);
+    printf("Non Matrix dimension_i!\n");
   }
   return;
 }

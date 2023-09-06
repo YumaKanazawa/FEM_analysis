@@ -19,7 +19,7 @@ double *u(double x,double y){
 }
 
 //移流拡散の初期座標
-#define x0 0.6
+#define x0 0.25
 #define y0 0
 
 //方程式の解析解
@@ -164,7 +164,7 @@ double *out_force_charcterize(mesh_t *mesh,double *u_old){
     /*==============================================================*/
 
     double *return_vector=dvector(1,np);
-
+    
     for(int l=1;l<=ne;l++){
         // //要素KlがPi,Pj,Pkで構成されている
         // double **M=dmatrix(1,n,1,n);//要素質量行列
@@ -205,9 +205,9 @@ double *out_force_charcterize(mesh_t *mesh,double *u_old){
         // free_dvector(rhs,1,n);
 
         double S_Kl=area(mesh,l);
+        
 
         for(int j=1;j<=dim+1;j++){
-
             double ret=0.0;//各行の線形和を入れる
 
             int ver=elnp[l][j];//要素Klのj番目の節点番号
@@ -257,12 +257,7 @@ double *out_force_charcterize(mesh_t *mesh,double *u_old){
 
             return_vector[ver]+=(mij+ret*S_Kl);//上流点の計算結果を反映させる
         }
-
     }
-
-    // double *RHS=upstream_Integration(mesh,u_old);
-    // for(int i=1;i<=np;i++)return_vector[i]+=RHS[i];
-    // free_dvector(RHS,1,np);
     
     /*=====================ノイマン条件の反映=====================*/
     for(int b=1;b<=nb;b++){
@@ -325,6 +320,7 @@ int main(int argc,char *argv[]){
     alloc_scan_mesh(&mesh,argv[1],argv[2]);//argv[1]=次元の数　argv[2]=meshファイルの名前
     int np=mesh.np;
     double **npxy=mesh.npxy;
+
     /*==============================================================*/
 
     //初期条件の代入
@@ -336,9 +332,35 @@ int main(int argc,char *argv[]){
 
     double **A=Al(weak_form,&mesh);//剛性行列(境界条件込み)
 
+    double Err_L2=0.0;//時間方向にL2誤差
+    double Err_sup=-100;//時間方向にsup誤差
+
     for(int T=0;T<=Nt;T+=1){//時刻Tにおいて解を求める
         double *RHS=out_force_charcterize(&mesh,u_old);
         printf("t=%d,|u|=%f\n",T,vector_norm1(u_old,1,np,1.0));
+
+        /*==============時刻tnにおける解析解との誤差=================*/
+        // double e_n_max=-1000;//時刻tnにおけるsup誤差
+        double e_n_L2=0.0;//時刻tnにおけるL2誤差の二乗
+        for(int i=1;i<=np;i++){
+            double x_i=npxy[i][1],y_i=npxy[i][2];//i番目の接点のx,y座標
+            double u_i_n=u_exa(x_i,y_i,T*delta_t);//離散時刻での解析解
+
+            double err_n=fabs(u_i_n-u_old[i]);//絶対値誤差
+
+            e_n_L2+=pow(err_n,2);
+
+            // if(err_n>=e_n_max){
+            //     e_n_max=err_n;
+            // }
+        }
+        /*======================================================*/
+        Err_L2+=e_n_L2;//各時刻のL2をとる
+
+        if(Err_sup<=sqrt(e_n_L2)){
+            Err_sup=sqrt(e_n_L2);
+        }
+        
 
         char str[200];
         sprintf(str,"figure/mesh%d.dat",T);
@@ -353,9 +375,11 @@ int main(int argc,char *argv[]){
         free_dvector(RHS,1,np);
     }
 
+    printf("Err L2,(l2)=%f\n",sqrt(delta_t*Err_L2));//誤差の表示
+    printf("Err L∞,(l2)=%f\n",Err_sup);//誤差の表示
+
     free_dmatrix(A,1,np,1,np);
     free_dvector(u_old,1,np);
-
 
     mesh_free(&mesh);//free;
     return 0;
